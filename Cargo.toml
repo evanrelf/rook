@@ -3,3 +3,4 @@ name = "rook"
 edition = "2024"
 
 [dependencies]
+arrayvec = "0.7.6"
