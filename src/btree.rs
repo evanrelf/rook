@@ -1,5 +1,4 @@
-// TODO: Remove
-#![allow(unused)]
+#![allow(unused)] // TODO: Remove
 
 use arrayvec::ArrayVec;
 use std::{mem, sync::Arc};
@@ -70,9 +69,10 @@ impl<K, V> Default for BTreeMap<K, V> {
     }
 }
 
-/// Maximum number of children a node can have
-// TODO: Choose a real value
-const M: usize = 42;
+/// Branching factor of the tree
+///
+/// Also represents the maximum number of children a node can have.
+const M: usize = 42; // TODO: Choose a real value
 
 /// Minimum possible height of the tree
 ///
@@ -107,6 +107,30 @@ impl<K, V> Node<K, V> {
             keys: ArrayVec::new(),
             values: ArrayVec::new(),
         })
+    }
+
+    fn search(&self, key: &K) -> NodeSearchResult
+    where
+        K: Ord,
+    {
+        let mut node = self;
+        let mut internal_indices = ArrayVec::new();
+        loop {
+            match node {
+                Node::Internal(internal) => {
+                    let index = internal.search(key);
+                    internal_indices.push(index);
+                    node = &internal.children[index];
+                    continue;
+                }
+                Node::Leaf(leaf) => {
+                    break NodeSearchResult {
+                        internal_indices,
+                        leaf_index: leaf.search(key),
+                    };
+                }
+            }
+        }
     }
 
     fn insert(&mut self, key: K, value: V) -> Option<V> {
@@ -170,6 +194,11 @@ impl<K, V> Node<K, V> {
     }
 }
 
+struct NodeSearchResult {
+    internal_indices: ArrayVec<usize, H_MAX>,
+    leaf_index: LeafSearchResult,
+}
+
 #[derive(Clone)]
 struct NodeInternal<K, V> {
     keys: ArrayVec<K, { M - 1 }>,
@@ -177,11 +206,14 @@ struct NodeInternal<K, V> {
 }
 
 impl<K, V> NodeInternal<K, V> {
-    fn search(&self, key: &K) -> SearchResult
+    fn search(&self, key: &K) -> usize
     where
         K: Ord,
     {
-        todo!()
+        self.keys
+            .iter()
+            .position(|k| k > key)
+            .unwrap_or(self.keys.len() - 1)
     }
 
     fn get(&self, key: &K) -> Option<&V>
@@ -247,14 +279,14 @@ struct NodeLeaf<K, V> {
 }
 
 impl<K, V> NodeLeaf<K, V> {
-    fn search(&self, key: &K) -> SearchResult
+    fn search(&self, key: &K) -> LeafSearchResult
     where
         K: Ord,
     {
         match self.keys.binary_search(key) {
-            Ok(index) => SearchResult::Found(index),
-            Err(index) if self.keys.is_full() => SearchResult::MissingFull,
-            Err(index) => SearchResult::MissingCanInsert(index),
+            Ok(index) => LeafSearchResult::Found(index),
+            Err(index) if self.keys.is_full() => LeafSearchResult::MissingFull,
+            Err(index) => LeafSearchResult::MissingCanInsert(index),
         }
     }
 
@@ -263,16 +295,16 @@ impl<K, V> NodeLeaf<K, V> {
         K: Ord,
     {
         match self.search(&key) {
-            SearchResult::Found(index) => {
+            LeafSearchResult::Found(index) => {
                 let previous_value = mem::replace(&mut self.values[index], value);
                 Ok(Some(previous_value))
             }
-            SearchResult::MissingCanInsert(index) => {
+            LeafSearchResult::MissingCanInsert(index) => {
                 self.keys.insert(index, key);
                 self.values.insert(index, value);
                 Ok(None)
             }
-            SearchResult::MissingFull => Err((key, value)),
+            LeafSearchResult::MissingFull => Err((key, value)),
         }
     }
 
@@ -281,7 +313,7 @@ impl<K, V> NodeLeaf<K, V> {
         K: Ord,
     {
         match self.search(key) {
-            SearchResult::Found(index) => {
+            LeafSearchResult::Found(index) => {
                 self.keys.remove(index);
                 let value = self.values.remove(index);
                 Some(value)
@@ -326,7 +358,7 @@ impl<K, V> NodeLeaf<K, V> {
     }
 }
 
-enum SearchResult {
+enum LeafSearchResult {
     Found(usize),
     MissingCanInsert(usize),
     MissingFull,
