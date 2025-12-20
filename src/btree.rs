@@ -97,7 +97,7 @@ const H_MAX: usize = 38;
 #[expect(clippy::large_enum_variant)]
 #[derive(Clone)]
 enum Node<K, V> {
-    Internal(NodeInternal<K, V>),
+    Branch(NodeBranch<K, V>),
     Leaf(NodeLeaf<K, V>),
 }
 
@@ -111,18 +111,18 @@ impl<K, V> Node<K, V> {
         K: Ord,
     {
         let mut node = self;
-        let mut internal_indices = ArrayVec::new();
+        let mut branch_indices = ArrayVec::new();
         loop {
             match node {
-                Node::Internal(internal) => {
-                    let index = internal.search(key);
-                    internal_indices.push(index);
-                    node = &internal.children[index];
+                Node::Branch(branch) => {
+                    let index = branch.search(key);
+                    branch_indices.push(index);
+                    node = &branch.children[index];
                     continue;
                 }
                 Node::Leaf(leaf) => {
                     break NodeSearchResult {
-                        internal_indices,
+                        branch_indices,
                         leaf_index: leaf.search(key),
                     };
                 }
@@ -143,7 +143,7 @@ impl<K, V> Node<K, V> {
         K: Ord,
     {
         match self {
-            Node::Internal(internal) => internal.get(key),
+            Node::Branch(branch) => branch.get(key),
             Node::Leaf(leaf) => leaf.get(key),
         }
     }
@@ -153,7 +153,7 @@ impl<K, V> Node<K, V> {
         K: Ord,
     {
         match self {
-            Node::Internal(internal) => internal.get_mut(key),
+            Node::Branch(branch) => branch.get_mut(key),
             Node::Leaf(leaf) => leaf.get_mut(key),
         }
     }
@@ -163,20 +163,20 @@ impl<K, V> Node<K, V> {
         K: Ord,
     {
         match self {
-            Node::Internal(internal) => internal.contains_key(key),
+            Node::Branch(branch) => branch.contains_key(key),
             Node::Leaf(leaf) => leaf.contains_key(key),
         }
     }
 
     fn is_empty(&self) -> bool {
         match self {
-            Node::Internal(internal) => internal.is_empty(),
+            Node::Branch(branch) => branch.is_empty(),
             Node::Leaf(leaf) => leaf.is_empty(),
         }
     }
 
-    fn is_internal(&self) -> bool {
-        matches!(self, Node::Internal(_))
+    fn is_branch(&self) -> bool {
+        matches!(self, Node::Branch(_))
     }
 
     fn is_leaf(&self) -> bool {
@@ -185,7 +185,7 @@ impl<K, V> Node<K, V> {
 
     fn assert_invariants(&self, depth: u8) {
         match self {
-            Node::Internal(internal) => internal.assert_invariants(depth),
+            Node::Branch(branch) => branch.assert_invariants(depth),
             Node::Leaf(leaf) => leaf.assert_invariants(depth),
         }
     }
@@ -198,17 +198,17 @@ impl<K, V> Default for Node<K, V> {
 }
 
 struct NodeSearchResult {
-    internal_indices: ArrayVec<usize, H_MAX>,
+    branch_indices: ArrayVec<usize, H_MAX>,
     leaf_index: LeafSearchResult,
 }
 
 #[derive(Clone)]
-struct NodeInternal<K, V> {
+struct NodeBranch<K, V> {
     keys: ArrayVec<K, { M - 1 }>,
     children: ArrayVec<Arc<Node<K, V>>, M>,
 }
 
-impl<K, V> NodeInternal<K, V> {
+impl<K, V> NodeBranch<K, V> {
     fn search(&self, key: &K) -> usize
     where
         K: Ord,
