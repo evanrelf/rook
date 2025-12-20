@@ -300,7 +300,7 @@ impl<K, V> NodeLeaf<K, V> {
         }
     }
 
-    pub fn insert(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
+    fn insert(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
     where
         K: Ord,
     {
@@ -318,7 +318,7 @@ impl<K, V> NodeLeaf<K, V> {
         }
     }
 
-    pub fn remove(&mut self, key: &K) -> Option<V>
+    fn remove(&mut self, key: &K) -> Option<V>
     where
         K: Ord,
     {
