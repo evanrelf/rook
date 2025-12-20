@@ -54,8 +54,29 @@ impl<K, V> Default for BTreeMap<K, V> {
     }
 }
 
+/// Maximum number of children a node can have
 // TODO: Choose a real value
 const M: usize = 42;
+
+/// Minimum possible height of the tree
+///
+/// [Wikipedia > Tree (abstract data type) > Terminology][1] says "The height of a node is the
+/// length of the longest downward path to a leaf from that node. The height of the root is the
+/// height of the tree," and therefore "leaf nodes have height zero."
+///
+/// [1]: https://en.wikipedia.org/wiki/Tree_(abstract_data_type)#Terminology
+const H_MIN: usize = 0;
+
+/// Maximum possible height of the tree
+///
+/// I'm making an educated guess that the height will will never exceed 38 based on these sources:
+///
+/// - [Wikipedia > B-tree > Best case and worst case heights][1]
+/// - [WolframAlpha > "limit of (floor(log base 2 of ((n + 1) / 2))) as n approaches 1 trillion"][2]
+///
+/// [1]: https://en.wikipedia.org/wiki/B-tree#Best_case_and_worst_case_heights
+/// [2]: https://www.wolframalpha.com/input?i=limit+of+%28floor%28log+base+2+of+%28%28n+%2B+1%29+%2F+2%29%29%29+as+n+approaches+1+trillion
+const H_MAX: usize = 38;
 
 #[expect(clippy::large_enum_variant)]
 enum Node<K, V> {
