@@ -4,21 +4,32 @@
 use arrayvec::ArrayVec;
 use std::{mem, sync::Arc};
 
+#[derive(Clone)]
 pub struct BTreeMap<K, V> {
-    root: Node<K, V>,
+    root: Arc<Node<K, V>>,
 }
 
 impl<K, V> BTreeMap<K, V> {
     pub fn new() -> Self {
-        Self { root: Node::new() }
+        Self {
+            root: Arc::new(Node::new()),
+        }
     }
 
-    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
-        self.root.insert(key, value)
+    pub fn insert(&mut self, key: K, value: V) -> Option<V>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        Arc::make_mut(&mut self.root).insert(key, value)
     }
 
-    pub fn remove(&mut self, key: &K) -> Option<V> {
-        self.root.remove(key)
+    pub fn remove(&mut self, key: &K) -> Option<V>
+    where
+        K: Clone,
+        V: Clone,
+    {
+        Arc::make_mut(&mut self.root).remove(key)
     }
 
     pub fn get(&self, key: &K) -> Option<&V>
@@ -30,9 +41,10 @@ impl<K, V> BTreeMap<K, V> {
 
     pub fn get_mut(&mut self, key: &K) -> Option<&mut V>
     where
-        K: Ord,
+        K: Clone + Ord,
+        V: Clone,
     {
-        self.root.get_mut(key)
+        Arc::make_mut(&mut self.root).get_mut(key)
     }
 
     pub fn contains_key(&self, key: &K) -> bool
@@ -82,6 +94,7 @@ const H_MIN: usize = 0;
 const H_MAX: usize = 38;
 
 #[expect(clippy::large_enum_variant)]
+#[derive(Clone)]
 enum Node<K, V> {
     Internal(NodeInternal<K, V>),
     Leaf(NodeLeaf<K, V>),
@@ -156,6 +169,7 @@ impl<K, V> Node<K, V> {
     }
 }
 
+#[derive(Clone)]
 struct NodeInternal<K, V> {
     keys: ArrayVec<K, { M - 1 }>,
     children: ArrayVec<Arc<Node<K, V>>, M>,
@@ -225,6 +239,7 @@ impl<K, V> NodeInternal<K, V> {
     }
 }
 
+#[derive(Clone)]
 struct NodeLeaf<K, V> {
     keys: ArrayVec<K, M>,
     values: ArrayVec<V, M>,
