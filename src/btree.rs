@@ -4,6 +4,7 @@
 use arrayvec::ArrayVec;
 use std::{mem, sync::Arc};
 
+/// Ordered map based on a copy-on-write B+ tree
 #[derive(Clone)]
 pub struct BTreeMap<K, V> {
     root: Arc<Node<K, V>>,
