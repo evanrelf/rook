@@ -336,9 +336,9 @@ impl<K, V> NodeLeaf<K, V> {
     where
         K: Ord,
     {
-        match self.keys.binary_search(key) {
-            Ok(index) => Some(&self.values[index]),
-            Err(_) => None,
+        match self.search(key) {
+            LeafSearchResult::Found(index) => Some(&self.values[index]),
+            _ => None,
         }
     }
 
@@ -346,9 +346,9 @@ impl<K, V> NodeLeaf<K, V> {
     where
         K: Ord,
     {
-        match self.keys.binary_search(key) {
-            Ok(index) => Some(&mut self.values[index]),
-            Err(_) => None,
+        match self.search(key) {
+            LeafSearchResult::Found(index) => Some(&mut self.values[index]),
+            _ => None,
         }
     }
 
@@ -356,7 +356,7 @@ impl<K, V> NodeLeaf<K, V> {
     where
         K: Ord,
     {
-        self.keys.binary_search(key).is_ok()
+        matches!(self.search(key), LeafSearchResult::Found(_))
     }
 
     fn is_empty(&self) -> bool {
