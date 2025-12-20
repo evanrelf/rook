@@ -2,7 +2,7 @@
 #![allow(unused)]
 
 use arrayvec::ArrayVec;
-use std::sync::Arc;
+use std::{mem, sync::Arc};
 
 pub struct BTreeMap<K, V> {
     root: Node<K, V>,
@@ -162,6 +162,13 @@ struct NodeInternal<K, V> {
 }
 
 impl<K, V> NodeInternal<K, V> {
+    fn search(&self, key: &K) -> SearchResult
+    where
+        K: Ord,
+    {
+        todo!()
+    }
+
     fn get(&self, key: &K) -> Option<&V>
     where
         K: Ord,
@@ -224,6 +231,49 @@ struct NodeLeaf<K, V> {
 }
 
 impl<K, V> NodeLeaf<K, V> {
+    fn search(&self, key: &K) -> SearchResult
+    where
+        K: Ord,
+    {
+        match self.keys.binary_search(key) {
+            Ok(index) => SearchResult::Found(index),
+            Err(index) if self.keys.is_full() => SearchResult::MissingFull,
+            Err(index) => SearchResult::MissingCanInsert(index),
+        }
+    }
+
+    pub fn insert(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
+    where
+        K: Ord,
+    {
+        match self.search(&key) {
+            SearchResult::Found(index) => {
+                let previous_value = mem::replace(&mut self.values[index], value);
+                Ok(Some(previous_value))
+            }
+            SearchResult::MissingCanInsert(index) => {
+                self.keys.insert(index, key);
+                self.values.insert(index, value);
+                Ok(None)
+            }
+            SearchResult::MissingFull => Err((key, value)),
+        }
+    }
+
+    pub fn remove(&mut self, key: &K) -> Option<V>
+    where
+        K: Ord,
+    {
+        match self.search(key) {
+            SearchResult::Found(index) => {
+                self.keys.remove(index);
+                let value = self.values.remove(index);
+                Some(value)
+            }
+            _ => None,
+        }
+    }
+
     fn get(&self, key: &K) -> Option<&V>
     where
         K: Ord,
@@ -258,4 +308,10 @@ impl<K, V> NodeLeaf<K, V> {
     fn assert_invariants(&self, depth: u8) {
         assert!(self.keys.len() == self.values.len());
     }
+}
+
+enum SearchResult {
+    Found(usize),
+    MissingCanInsert(usize),
+    MissingFull,
 }
