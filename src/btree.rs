@@ -237,7 +237,7 @@ impl<K, V> NodeInternal<K, V> {
     where
         K: Ord,
     {
-        self.keys.binary_search(key).is_ok()
+        todo!()
     }
 
     fn is_empty(&self) -> bool {
