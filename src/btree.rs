@@ -103,10 +103,7 @@ enum Node<K, V> {
 
 impl<K, V> Node<K, V> {
     fn new() -> Self {
-        Self::Leaf(NodeLeaf {
-            keys: ArrayVec::new(),
-            values: ArrayVec::new(),
-        })
+        Self::Leaf(NodeLeaf::new())
     }
 
     fn search(&self, key: &K) -> NodeSearchResult
@@ -191,6 +188,12 @@ impl<K, V> Node<K, V> {
             Node::Internal(internal) => internal.assert_invariants(depth),
             Node::Leaf(leaf) => leaf.assert_invariants(depth),
         }
+    }
+}
+
+impl<K, V> Default for Node<K, V> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -279,6 +282,13 @@ struct NodeLeaf<K, V> {
 }
 
 impl<K, V> NodeLeaf<K, V> {
+    fn new() -> Self {
+        Self {
+            keys: ArrayVec::new(),
+            values: ArrayVec::new(),
+        }
+    }
+
     fn search(&self, key: &K) -> LeafSearchResult
     where
         K: Ord,
@@ -355,6 +365,12 @@ impl<K, V> NodeLeaf<K, V> {
 
     fn assert_invariants(&self, depth: u8) {
         assert!(self.keys.len() == self.values.len());
+    }
+}
+
+impl<K, V> Default for NodeLeaf<K, V> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
