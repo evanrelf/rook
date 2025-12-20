@@ -379,3 +379,22 @@ enum LeafSearchResult {
     MissingCanInsert(usize),
     MissingFull,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn leaf() {
+        let mut leaf = NodeLeaf::new();
+        assert!(leaf.insert(1, 11).is_ok());
+        assert!(leaf.insert(2, 22).is_ok());
+        assert!(leaf.insert(3, 33).is_ok());
+        assert_eq!(leaf.get(&1), Some(&11));
+        assert_eq!(leaf.get(&2), Some(&22));
+        assert!(leaf.contains_key(&3));
+        assert_eq!(leaf.remove(&3), Some(33));
+        assert!(!leaf.contains_key(&3));
+        assert_eq!(leaf.get(&3), None);
+    }
+}
