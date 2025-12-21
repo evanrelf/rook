@@ -1,5 +1,11 @@
 # Development log
 
+## 2025-12-21
+
+Actually I was wrong about needing to overflow for insert! I didn't read the
+description of the insertion algorithm on Wikipedia ([link](https://en.wikipedia.org/wiki/B%2B_tree#Insertion))
+carefully enough. It was late I guess.
+
 ## 2025-12-20
 
 SQLite has been my main influence/inspiration so far, but I'm adding
