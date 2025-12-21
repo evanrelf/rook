@@ -339,8 +339,7 @@ impl<K, V> NodeLeaf<K, V> {
     {
         match self.keys.binary_search(key) {
             Ok(index) => LeafSearchResult::Found(index),
-            Err(index) if self.is_full() => LeafSearchResult::MissingFull(index),
-            Err(index) => LeafSearchResult::MissingCanInsert(index),
+            Err(index) => LeafSearchResult::Missing(index),
         }
     }
 
@@ -362,14 +361,12 @@ impl<K, V> NodeLeaf<K, V> {
                 let previous_value = mem::replace(&mut self.values[index], value);
                 LeafInsertResult::Replaced(previous_value)
             }
-            LeafSearchResult::MissingCanInsert(index) => {
+            LeafSearchResult::Missing(index) => {
                 self.keys.insert(index, key);
                 self.values.insert(index, value);
-                LeafInsertResult::Inserted
-            }
-            LeafSearchResult::MissingFull(index) => {
-                self.keys.insert(index, key);
-                self.values.insert(index, value);
+                if !self.keys.is_full() {
+                    return LeafInsertResult::Inserted;
+                }
                 let sibling = Self {
                     keys: self.keys.drain(M / 2 + 1..).collect(),
                     values: self.values.drain(M / 2 + 1..).collect(),
@@ -449,8 +446,7 @@ impl<K, V> Default for NodeLeaf<K, V> {
 
 enum LeafSearchResult {
     Found(usize),
-    MissingCanInsert(usize),
-    MissingFull(usize),
+    Missing(usize),
 }
 
 enum LeafInsertResult<K, V> {
