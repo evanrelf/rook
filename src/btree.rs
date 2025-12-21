@@ -182,6 +182,13 @@ impl<K, V> Node<K, V> {
         }
     }
 
+    fn is_full(&self) -> bool {
+        match self {
+            Node::Branch(branch) => branch.is_full(),
+            Node::Leaf(leaf) => leaf.is_full(),
+        }
+    }
+
     fn is_branch(&self) -> bool {
         matches!(self, Node::Branch(_))
     }
@@ -263,6 +270,10 @@ impl<K, V> NodeBranch<K, V> {
         false
     }
 
+    fn is_full(&self) -> bool {
+        self.keys.is_full()
+    }
+
     fn assert_invariants(&self, depth: u8) {
         // https://en.wikipedia.org/wiki/B-tree#Definition
         assert!(
@@ -314,7 +325,7 @@ impl<K, V> NodeLeaf<K, V> {
     {
         match self.keys.binary_search(key) {
             Ok(index) => LeafSearchResult::Found(index),
-            Err(index) if self.keys.is_full() => LeafSearchResult::MissingFull,
+            Err(index) if self.is_full() => LeafSearchResult::MissingFull,
             Err(index) => LeafSearchResult::MissingCanInsert(index),
         }
     }
@@ -380,6 +391,10 @@ impl<K, V> NodeLeaf<K, V> {
 
     fn is_empty(&self) -> bool {
         self.keys.is_empty()
+    }
+
+    fn is_full(&self) -> bool {
+        self.keys.is_full()
     }
 
     fn assert_invariants(&self, depth: u8) {
