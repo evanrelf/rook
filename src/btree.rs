@@ -353,25 +353,7 @@ impl<K, V> NodeLeaf<K, V> {
         }
     }
 
-    fn insert1(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
-    where
-        K: Ord,
-    {
-        match self.search(&key) {
-            LeafSearchResult::Found(index) => {
-                let previous_value = mem::replace(&mut self.values[index], value);
-                Ok(Some(previous_value))
-            }
-            LeafSearchResult::MissingCanInsert(index) => {
-                self.keys.insert(index, key);
-                self.values.insert(index, value);
-                Ok(None)
-            }
-            LeafSearchResult::MissingFull(_index) => Err((key, value)),
-        }
-    }
-
-    fn insert2(&mut self, key: K, value: V) -> LeafInsertResult<K, V>
+    fn insert(&mut self, key: K, value: V) -> LeafInsertResult<K, V>
     where
         K: Clone + Ord,
     {
@@ -482,14 +464,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn leaf_crud() {
+    fn leaf_no_overflow() {
         let mut leaf = NodeLeaf::new();
 
-        assert!(leaf.insert1(1, 11).is_ok());
-        assert!(leaf.insert1(2, 22).is_ok());
-        assert!(leaf.insert1(3, 33).is_ok());
-        assert!(leaf.insert1(4, 44).is_ok());
-        assert!(leaf.insert1(5, 55).is_err());
+        assert!(matches!(leaf.insert(1, 11), LeafInsertResult::Inserted));
+        assert!(matches!(leaf.insert(2, 22), LeafInsertResult::Inserted));
+        assert!(matches!(leaf.insert(3, 33), LeafInsertResult::Inserted));
+        assert!(matches!(leaf.insert(4, 44), LeafInsertResult::Inserted));
 
         assert_eq!(leaf.get(&1), Some(&11));
         *leaf.get_mut(&2).unwrap() = 29;
@@ -501,32 +482,15 @@ mod tests {
         assert_eq!(leaf.get(&3), None);
     }
 
-    // TODO: Delete this.
-    #[test]
-    fn leaf_split() {
-        let mut leaf1 = NodeLeaf::new();
-        assert!(leaf1.insert1(1, 11).is_ok());
-        assert!(leaf1.insert1(2, 22).is_ok());
-        assert!(leaf1.insert1(3, 33).is_ok());
-        assert!(leaf1.insert1(4, 44).is_ok());
-
-        let leaf2 = leaf1.split();
-
-        assert_eq!(leaf1.keys.as_slice(), &[1, 2]);
-        assert_eq!(leaf1.values.as_slice(), &[11, 22]);
-
-        assert_eq!(leaf2.keys.as_slice(), &[3, 4]);
-        assert_eq!(leaf2.values.as_slice(), &[33, 44]);
-    }
-
     #[test]
     fn leaf_overflow() {
         let mut leaf1 = NodeLeaf::new();
-        assert!(matches!(leaf1.insert2(1, 11), LeafInsertResult::Inserted));
-        assert!(matches!(leaf1.insert2(2, 22), LeafInsertResult::Inserted));
-        assert!(matches!(leaf1.insert2(3, 33), LeafInsertResult::Inserted));
-        assert!(matches!(leaf1.insert2(4, 44), LeafInsertResult::Inserted));
-        let LeafInsertResult::Overflowed(parent_key, leaf2) = leaf1.insert2(5, 55) else {
+
+        assert!(matches!(leaf1.insert(1, 11), LeafInsertResult::Inserted));
+        assert!(matches!(leaf1.insert(2, 22), LeafInsertResult::Inserted));
+        assert!(matches!(leaf1.insert(3, 33), LeafInsertResult::Inserted));
+        assert!(matches!(leaf1.insert(4, 44), LeafInsertResult::Inserted));
+        let LeafInsertResult::Overflowed(parent_key, leaf2) = leaf1.insert(5, 55) else {
             panic!();
         };
 
