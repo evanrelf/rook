@@ -1,7 +1,7 @@
 #![allow(unused)] // TODO: Remove
 
 use arrayvec::ArrayVec;
-use std::{mem, sync::Arc};
+use std::{iter, mem, sync::Arc};
 
 /// Ordered map based on an in-memory copy-on-write B+ tree
 #[derive(Clone)]
@@ -344,12 +344,34 @@ impl<K, V> NodeLeaf<K, V> {
         }
     }
 
+    // TODO: Delete this.
     fn split(&mut self) -> Self {
         assert!(self.is_full(), "Only full leaves are split");
         Self {
             keys: self.keys.drain(M / 2..).collect(),
             values: self.values.drain(M / 2..).collect(),
         }
+    }
+
+    // TODO: Implement this.
+    // https://cburch.com/cs/340/reading/btree/#s2
+    fn overflow(&mut self, key: K, value: V) -> (K, Self)
+    where
+        K: Clone,
+    {
+        assert!(self.is_full(), "Only full leaves overflow");
+        let sibling = Self::new();
+        for (k, v) in iter::zip(self.keys.take(), self.values.take()) {
+            if self.keys.len() < (M / 2) + 1 {
+                //
+            } else {
+                //
+            }
+        }
+        assert_eq!(self.keys.len(), (M / 2) + 1);
+        assert_eq!(sibling.keys.len(), M / 2);
+        let parent_key = sibling.keys[0].clone();
+        (parent_key, sibling)
     }
 
     fn insert1(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
@@ -370,8 +392,25 @@ impl<K, V> NodeLeaf<K, V> {
         }
     }
 
-    fn insert2(&mut self, key: K, value: V) -> LeafInsertResult<K, V> {
-        todo!()
+    fn insert2(&mut self, key: K, value: V) -> LeafInsertResult<K, V>
+    where
+        K: Clone + Ord,
+    {
+        match self.search(&key) {
+            LeafSearchResult::Found(index) => {
+                let previous_value = mem::replace(&mut self.values[index], value);
+                LeafInsertResult::Replaced(previous_value)
+            }
+            LeafSearchResult::MissingCanInsert(index) => {
+                self.keys.insert(index, key);
+                self.values.insert(index, value);
+                LeafInsertResult::Inserted
+            }
+            LeafSearchResult::MissingFull => {
+                let (parent_key, sibling) = self.overflow(key, value);
+                LeafInsertResult::Overflowed(parent_key, sibling)
+            }
+        }
     }
 
     fn remove(&mut self, key: &K) -> Option<V>
@@ -470,6 +509,7 @@ mod tests {
         assert_eq!(leaf.get(&3), None);
     }
 
+    // TODO: Delete this.
     #[test]
     fn leaf_split() {
         let mut leaf1 = NodeLeaf::new();
@@ -485,5 +525,25 @@ mod tests {
 
         assert_eq!(leaf2.keys.as_slice(), &[3, 4]);
         assert_eq!(leaf2.values.as_slice(), &[33, 44]);
+    }
+
+    #[test]
+    fn leaf_overflow() {
+        let mut leaf1 = NodeLeaf::new();
+        assert!(matches!(leaf1.insert2(1, 11), LeafInsertResult::Inserted));
+        assert!(matches!(leaf1.insert2(2, 22), LeafInsertResult::Inserted));
+        assert!(matches!(leaf1.insert2(3, 33), LeafInsertResult::Inserted));
+        assert!(matches!(leaf1.insert2(4, 44), LeafInsertResult::Inserted));
+        let LeafInsertResult::Overflowed(parent_key, leaf2) = leaf1.insert2(5, 55) else {
+            panic!();
+        };
+
+        assert_eq!(leaf1.keys.as_slice(), &[1, 2, 3]);
+        assert_eq!(leaf1.values.as_slice(), &[11, 22, 33]);
+
+        assert_eq!(parent_key, 4);
+
+        assert_eq!(leaf2.keys.as_slice(), &[4, 5]);
+        assert_eq!(leaf2.values.as_slice(), &[44, 55]);
     }
 }
