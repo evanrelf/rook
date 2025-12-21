@@ -150,7 +150,8 @@ impl<K, V> Node<K, V> {
 
     fn get_mut(&mut self, key: &K) -> Option<&mut V>
     where
-        K: Ord,
+        K: Clone + Ord,
+        V: Clone,
     {
         match self {
             Node::Branch(branch) => branch.get_mut(key),
@@ -219,25 +220,37 @@ impl<K, V> NodeBranch<K, V> {
             .unwrap_or(self.keys.len() - 1)
     }
 
+    fn insert(&mut self, key: K, value: V) -> Option<V> {
+        todo!()
+    }
+
+    fn remove(&mut self, key: &K) -> Option<V> {
+        todo!()
+    }
+
     fn get(&self, key: &K) -> Option<&V>
     where
         K: Ord,
     {
-        todo!()
+        let index = self.search(key);
+        self.children[index].get(key)
     }
 
     fn get_mut(&mut self, key: &K) -> Option<&mut V>
     where
-        K: Ord,
+        K: Clone + Ord,
+        V: Clone,
     {
-        todo!()
+        let index = self.search(key);
+        Arc::make_mut(&mut self.children[index]).get_mut(key)
     }
 
     fn contains_key(&self, key: &K) -> bool
     where
         K: Ord,
     {
-        todo!()
+        let index = self.search(key);
+        self.children[index].contains_key(key)
     }
 
     fn is_empty(&self) -> bool {
