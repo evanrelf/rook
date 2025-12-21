@@ -3,19 +3,21 @@
 use arrayvec::ArrayVec;
 use std::{mem, sync::Arc};
 
-/// Ordered map based on a copy-on-write B+ tree
+/// Ordered map based on an in-memory copy-on-write B+ tree
 #[derive(Clone)]
 pub struct BTreeMap<K, V> {
     root: Arc<Node<K, V>>,
 }
 
 impl<K, V> BTreeMap<K, V> {
+    /// Create a new, empty map
     pub fn new() -> Self {
         Self {
             root: Arc::new(Node::new()),
         }
     }
 
+    /// Insert an entry, returning the existing value if present
     pub fn insert(&mut self, key: K, value: V) -> Option<V>
     where
         K: Clone,
@@ -24,7 +26,7 @@ impl<K, V> BTreeMap<K, V> {
         Arc::make_mut(&mut self.root).insert(key, value)
     }
 
-    /// Remove an entry from the tree, returning its value if present
+    /// Remove an entry, returning the existing value if present
     ///
     /// We follow the advice of the ["Deletion without rebalancing in multiway search trees"][1]
     /// paper, which suggests "rebalancing on deletion not only is unnecessary but may be harmful."
@@ -38,6 +40,7 @@ impl<K, V> BTreeMap<K, V> {
         Arc::make_mut(&mut self.root).remove(key)
     }
 
+    /// Get a shared reference to the value associated with the given key
     pub fn get(&self, key: &K) -> Option<&V>
     where
         K: Ord,
@@ -45,6 +48,7 @@ impl<K, V> BTreeMap<K, V> {
         self.root.get(key)
     }
 
+    /// Get an exclusive reference to the value associated with the given key
     pub fn get_mut(&mut self, key: &K) -> Option<&mut V>
     where
         K: Clone + Ord,
@@ -53,6 +57,7 @@ impl<K, V> BTreeMap<K, V> {
         Arc::make_mut(&mut self.root).get_mut(key)
     }
 
+    /// Check whether the key is present in the map
     pub fn contains_key(&self, key: &K) -> bool
     where
         K: Ord,
@@ -60,6 +65,7 @@ impl<K, V> BTreeMap<K, V> {
         self.root.contains_key(key)
     }
 
+    /// Check whether the map has any entries
     pub fn is_empty(&self) -> bool {
         self.root.is_empty()
     }
