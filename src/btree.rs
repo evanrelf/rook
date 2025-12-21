@@ -321,8 +321,8 @@ impl<K, V> NodeBranch<K, V> {
 
 #[derive(Clone)]
 struct NodeLeaf<K, V> {
-    keys: ArrayVec<K, M>,
-    values: ArrayVec<V, M>,
+    keys: ArrayVec<K, { M + 1 }>,
+    values: ArrayVec<V, { M + 1 }>,
 }
 
 impl<K, V> NodeLeaf<K, V> {
@@ -339,7 +339,7 @@ impl<K, V> NodeLeaf<K, V> {
     {
         match self.keys.binary_search(key) {
             Ok(index) => LeafSearchResult::Found(index),
-            Err(index) if self.is_full() => LeafSearchResult::MissingFull,
+            Err(index) if self.is_full() => LeafSearchResult::MissingFull(index),
             Err(index) => LeafSearchResult::MissingCanInsert(index),
         }
     }
@@ -351,27 +351,6 @@ impl<K, V> NodeLeaf<K, V> {
             keys: self.keys.drain(M / 2..).collect(),
             values: self.values.drain(M / 2..).collect(),
         }
-    }
-
-    // TODO: Implement this.
-    // https://cburch.com/cs/340/reading/btree/#s2
-    fn overflow(&mut self, key: K, value: V) -> (K, Self)
-    where
-        K: Clone,
-    {
-        assert!(self.is_full(), "Only full leaves overflow");
-        let sibling = Self::new();
-        for (k, v) in iter::zip(self.keys.take(), self.values.take()) {
-            if self.keys.len() < (M / 2) + 1 {
-                //
-            } else {
-                //
-            }
-        }
-        assert_eq!(self.keys.len(), (M / 2) + 1);
-        assert_eq!(sibling.keys.len(), M / 2);
-        let parent_key = sibling.keys[0].clone();
-        (parent_key, sibling)
     }
 
     fn insert1(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
@@ -388,7 +367,7 @@ impl<K, V> NodeLeaf<K, V> {
                 self.values.insert(index, value);
                 Ok(None)
             }
-            LeafSearchResult::MissingFull => Err((key, value)),
+            LeafSearchResult::MissingFull(_index) => Err((key, value)),
         }
     }
 
@@ -406,8 +385,16 @@ impl<K, V> NodeLeaf<K, V> {
                 self.values.insert(index, value);
                 LeafInsertResult::Inserted
             }
-            LeafSearchResult::MissingFull => {
-                let (parent_key, sibling) = self.overflow(key, value);
+            LeafSearchResult::MissingFull(index) => {
+                self.keys.insert(index, key);
+                self.values.insert(index, value);
+                let sibling = Self {
+                    keys: self.keys.drain(M / 2 + 1..).collect(),
+                    values: self.values.drain(M / 2 + 1..).collect(),
+                };
+                let parent_key = sibling.keys[0].clone();
+                assert_eq!(self.keys.len(), (M / 2) + 1);
+                assert_eq!(sibling.keys.len(), M / 2);
                 LeafInsertResult::Overflowed(parent_key, sibling)
             }
         }
@@ -459,11 +446,16 @@ impl<K, V> NodeLeaf<K, V> {
     }
 
     fn is_full(&self) -> bool {
+        self.keys.len() == M
+    }
+
+    fn is_overflowing(&self) -> bool {
         self.keys.is_full()
     }
 
     fn assert_invariants(&self, depth: u8) {
-        assert!(self.keys.len() == self.values.len());
+        assert!(self.keys.len() == self.values.len(), "All keys have values");
+        assert!(self.keys.len() <= M, "Not overflowing");
     }
 }
 
@@ -476,7 +468,7 @@ impl<K, V> Default for NodeLeaf<K, V> {
 enum LeafSearchResult {
     Found(usize),
     MissingCanInsert(usize),
-    MissingFull,
+    MissingFull(usize),
 }
 
 enum LeafInsertResult<K, V> {
