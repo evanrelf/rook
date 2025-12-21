@@ -70,7 +70,10 @@ impl<K, V> BTreeMap<K, V> {
         self.root.is_empty()
     }
 
-    fn assert_invariants(&self) {
+    fn assert_invariants(&self)
+    where
+        K: Ord,
+    {
         self.root.assert_invariants(0);
     }
 }
@@ -211,7 +214,10 @@ impl<K, V> Node<K, V> {
         matches!(self, Node::Leaf(_))
     }
 
-    fn assert_invariants(&self, depth: u8) {
+    fn assert_invariants(&self, depth: u8)
+    where
+        K: Ord,
+    {
         match self {
             Node::Branch(branch) => branch.assert_invariants(depth),
             Node::Leaf(leaf) => leaf.assert_invariants(depth),
@@ -288,7 +294,10 @@ impl<K, V> NodeBranch<K, V> {
         self.keys.is_full()
     }
 
-    fn assert_invariants(&self, depth: u8) {
+    fn assert_invariants(&self, depth: u8)
+    where
+        K: Ord,
+    {
         // https://en.wikipedia.org/wiki/B-tree#Definition
         assert!(
             self.children.len() <= M,
@@ -313,6 +322,8 @@ impl<K, V> NodeBranch<K, V> {
             self.children.len() == self.keys.len() - 1,
             "5. A non-leaf node with k children contains_key k−1 keys."
         );
+        // TODO: Assert ordering is correct (e.g. keys to the left are less than). Could pass child
+        // bounds and have it check itself.
         for child in &self.children {
             child.assert_invariants(depth + 1);
         }
@@ -432,9 +443,13 @@ impl<K, V> NodeLeaf<K, V> {
         self.keys.is_full()
     }
 
-    fn assert_invariants(&self, depth: u8) {
+    fn assert_invariants(&self, depth: u8)
+    where
+        K: Ord,
+    {
         assert!(self.keys.len() == self.values.len(), "All keys have values");
         assert!(self.keys.len() <= M, "Not overflowing");
+        assert!(self.keys.is_sorted(), "Keys are sorted");
     }
 }
 
