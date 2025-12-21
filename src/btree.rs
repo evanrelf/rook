@@ -354,7 +354,7 @@ impl<K, V> NodeLeaf<K, V> {
         sibling
     }
 
-    fn insert(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
+    fn insert1(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
     where
         K: Ord,
     {
@@ -370,6 +370,10 @@ impl<K, V> NodeLeaf<K, V> {
             }
             LeafSearchResult::MissingFull => Err((key, value)),
         }
+    }
+
+    fn insert2(&mut self, key: K, value: V) -> LeafInsertResult<K, V> {
+        todo!()
     }
 
     fn remove(&mut self, key: &K) -> Option<V>
@@ -438,6 +442,12 @@ enum LeafSearchResult {
     MissingFull,
 }
 
+enum LeafInsertResult<K, V> {
+    Replaced(V),
+    Inserted,
+    Overflowed(K, NodeLeaf<K, V>),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -446,11 +456,11 @@ mod tests {
     fn leaf_crud() {
         let mut leaf = NodeLeaf::new();
 
-        assert!(leaf.insert(1, 11).is_ok());
-        assert!(leaf.insert(2, 22).is_ok());
-        assert!(leaf.insert(3, 33).is_ok());
-        assert!(leaf.insert(4, 44).is_ok());
-        assert!(leaf.insert(5, 55).is_err());
+        assert!(leaf.insert1(1, 11).is_ok());
+        assert!(leaf.insert1(2, 22).is_ok());
+        assert!(leaf.insert1(3, 33).is_ok());
+        assert!(leaf.insert1(4, 44).is_ok());
+        assert!(leaf.insert1(5, 55).is_err());
 
         assert_eq!(leaf.get(&1), Some(&11));
         *leaf.get_mut(&2).unwrap() = 29;
@@ -465,10 +475,10 @@ mod tests {
     #[test]
     fn leaf_split() {
         let mut leaf1 = NodeLeaf::new();
-        assert!(leaf1.insert(1, 11).is_ok());
-        assert!(leaf1.insert(2, 22).is_ok());
-        assert!(leaf1.insert(3, 33).is_ok());
-        assert!(leaf1.insert(4, 44).is_ok());
+        assert!(leaf1.insert1(1, 11).is_ok());
+        assert!(leaf1.insert1(2, 22).is_ok());
+        assert!(leaf1.insert1(3, 33).is_ok());
+        assert!(leaf1.insert1(4, 44).is_ok());
 
         let leaf2 = leaf1.split();
 
