@@ -344,6 +344,16 @@ impl<K, V> NodeLeaf<K, V> {
         }
     }
 
+    fn split(&mut self) -> Self {
+        assert!(self.is_full(), "Only full leaves are split");
+        let mut sibling = Self::new();
+        for _ in 0..M / 2 {
+            sibling.keys.insert(0, self.keys.pop().unwrap());
+            sibling.values.insert(0, self.values.pop().unwrap());
+        }
+        sibling
+    }
+
     fn insert(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
     where
         K: Ord,
@@ -433,7 +443,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn leaf() {
+    fn leaf_crud() {
         let mut leaf = NodeLeaf::new();
 
         assert!(leaf.insert(1, 11).is_ok());
@@ -443,11 +453,29 @@ mod tests {
         assert!(leaf.insert(5, 55).is_err());
 
         assert_eq!(leaf.get(&1), Some(&11));
-        assert_eq!(leaf.get(&2), Some(&22));
+        *leaf.get_mut(&2).unwrap() = 29;
+        assert_eq!(leaf.get(&2), Some(&29));
         assert!(leaf.contains_key(&3));
 
         assert_eq!(leaf.remove(&3), Some(33));
         assert!(!leaf.contains_key(&3));
         assert_eq!(leaf.get(&3), None);
+    }
+
+    #[test]
+    fn leaf_split() {
+        let mut leaf1 = NodeLeaf::new();
+        assert!(leaf1.insert(1, 11).is_ok());
+        assert!(leaf1.insert(2, 22).is_ok());
+        assert!(leaf1.insert(3, 33).is_ok());
+        assert!(leaf1.insert(4, 44).is_ok());
+
+        let leaf2 = leaf1.split();
+
+        assert_eq!(leaf1.keys.as_slice(), &[1, 2]);
+        assert_eq!(leaf1.values.as_slice(), &[11, 22]);
+
+        assert_eq!(leaf2.keys.as_slice(), &[3, 4]);
+        assert_eq!(leaf2.values.as_slice(), &[33, 44]);
     }
 }
