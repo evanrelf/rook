@@ -1,4 +1,5 @@
 #![allow(unused)] // TODO: Remove
+#![allow(clippy::manual_div_ceil)] // Erroneous lint
 
 use arrayvec::ArrayVec;
 use std::{iter, mem, sync::Arc};
@@ -366,7 +367,6 @@ impl<K, V> NodeLeaf<K, V> {
                     return LeafInsertResult::Inserted;
                 }
                 let self_len = (M + 1).div_ceil(2);
-                #[expect(clippy::manual_div_ceil)] // Erroneous lint
                 let sibling_len = (M + 1) / 2;
                 let mut sibling = Self {
                     keys: self.keys.drain(self_len..).collect(),
@@ -468,7 +468,6 @@ enum LeafInsertResult<K, V> {
 mod tests {
     use super::*;
 
-    #[expect(clippy::manual_div_ceil)] // Erroneous lint
     #[test]
     fn len_after_split() {
         // NOTE: `div_floor` is unstable, so we use `/` which does the same thing.
