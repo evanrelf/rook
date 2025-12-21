@@ -332,8 +332,8 @@ impl<K, V> NodeBranch<K, V> {
 
 #[derive(Clone)]
 struct NodeLeaf<K, V> {
-    keys: ArrayVec<K, { M + 1 }>,
-    values: ArrayVec<V, { M + 1 }>,
+    keys: ArrayVec<K, M>,
+    values: ArrayVec<V, M>,
 }
 
 impl<K, V> NodeLeaf<K, V> {
@@ -354,15 +354,6 @@ impl<K, V> NodeLeaf<K, V> {
         }
     }
 
-    // TODO: Delete this.
-    fn split(&mut self) -> Self {
-        assert!(self.is_full(), "Only full leaves are split");
-        Self {
-            keys: self.keys.drain(M / 2..).collect(),
-            values: self.values.drain(M / 2..).collect(),
-        }
-    }
-
     fn insert(&mut self, key: K, value: V) -> LeafInsertResult<K, V>
     where
         K: Clone + Ord,
@@ -373,19 +364,23 @@ impl<K, V> NodeLeaf<K, V> {
                 LeafInsertResult::Replaced(previous_value)
             }
             LeafSearchResult::Missing(index) => {
-                self.keys.insert(index, key);
-                self.values.insert(index, value);
-                if !self.keys.is_full() {
+                if !self.is_full() {
+                    self.keys.insert(index, key);
+                    self.values.insert(index, value);
                     return LeafInsertResult::Inserted;
                 }
-                let sibling = Self {
+                let mut sibling = Self {
                     keys: self.keys.drain(M / 2 + 1..).collect(),
                     values: self.values.drain(M / 2 + 1..).collect(),
                 };
+                assert!(matches!(
+                    sibling.insert(key, value),
+                    LeafInsertResult::Inserted
+                ));
                 let parent_key = sibling.keys[0].clone();
                 assert_eq!(self.keys.len(), (M / 2) + 1);
                 assert_eq!(sibling.keys.len(), M / 2);
-                LeafInsertResult::Overflowed(parent_key, sibling)
+                LeafInsertResult::Split(parent_key, sibling)
             }
         }
     }
@@ -467,7 +462,7 @@ enum LeafSearchResult {
 enum LeafInsertResult<K, V> {
     Replaced(V),
     Inserted,
-    Overflowed(K, NodeLeaf<K, V>),
+    Split(K, NodeLeaf<K, V>),
 }
 
 #[cfg(test)]
@@ -475,7 +470,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn leaf_no_overflow() {
+    fn leaf_no_split() {
         let mut leaf = NodeLeaf::new();
 
         assert!(matches!(leaf.insert(1, 11), LeafInsertResult::Inserted));
@@ -494,14 +489,14 @@ mod tests {
     }
 
     #[test]
-    fn leaf_overflow() {
+    fn leaf_split() {
         let mut leaf1 = NodeLeaf::new();
 
         assert!(matches!(leaf1.insert(1, 11), LeafInsertResult::Inserted));
         assert!(matches!(leaf1.insert(2, 22), LeafInsertResult::Inserted));
         assert!(matches!(leaf1.insert(3, 33), LeafInsertResult::Inserted));
         assert!(matches!(leaf1.insert(4, 44), LeafInsertResult::Inserted));
-        let LeafInsertResult::Overflowed(parent_key, leaf2) = leaf1.insert(5, 55) else {
+        let LeafInsertResult::Split(parent_key, leaf2) = leaf1.insert(5, 55) else {
             panic!();
         };
 
