@@ -72,7 +72,10 @@ impl<K, V> Default for BTreeMap<K, V> {
 /// Branching factor of the tree
 ///
 /// Also represents the maximum number of children a node can have.
+#[cfg(not(test))]
 const M: usize = 42; // TODO: Choose a real value
+#[cfg(test)]
+const M: usize = 4;
 
 /// Minimum possible height of the tree
 ///
@@ -92,9 +95,12 @@ const H_MIN: usize = 0;
 ///
 /// [1]: https://en.wikipedia.org/wiki/B-tree#Best_case_and_worst_case_heights
 /// [2]: https://www.wolframalpha.com/input?i=limit+of+%28floor%28log+base+2+of+%28%28n+%2B+1%29+%2F+2%29%29%29+as+n+approaches+1+trillion
-const H_MAX: usize = 38;
+const H_MAX: usize = {
+    assert!(M >= 4, "`H_MAX` assumes branching factor >= 4");
+    38
+};
 
-#[expect(clippy::large_enum_variant)]
+#[cfg_attr(not(test), expect(clippy::large_enum_variant))]
 #[derive(Clone)]
 enum Node<K, V> {
     Branch(NodeBranch<K, V>),
@@ -400,12 +406,17 @@ mod tests {
     #[test]
     fn leaf() {
         let mut leaf = NodeLeaf::new();
+
         assert!(leaf.insert(1, 11).is_ok());
         assert!(leaf.insert(2, 22).is_ok());
         assert!(leaf.insert(3, 33).is_ok());
+        assert!(leaf.insert(4, 44).is_ok());
+        assert!(leaf.insert(5, 55).is_err());
+
         assert_eq!(leaf.get(&1), Some(&11));
         assert_eq!(leaf.get(&2), Some(&22));
         assert!(leaf.contains_key(&3));
+
         assert_eq!(leaf.remove(&3), Some(33));
         assert!(!leaf.contains_key(&3));
         assert_eq!(leaf.get(&3), None);
