@@ -24,6 +24,12 @@ impl<K, V> BTreeMap<K, V> {
         Arc::make_mut(&mut self.root).insert(key, value)
     }
 
+    /// Remove an entry from the tree, returning its value if present
+    ///
+    /// We follow the advice of the ["Deletion without rebalancing in multiway search trees"][1]
+    /// paper, which suggests "rebalancing on deletion not only is unnecessary but may be harmful."
+    ///
+    /// [1]: https://doi.org/10.1145/2540068
     pub fn remove(&mut self, key: &K) -> Option<V>
     where
         K: Clone,
