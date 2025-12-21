@@ -14,6 +14,27 @@ structures](https://en.wikipedia.org/wiki/Persistent_data_structure) from
 functional programming, and the [ZFS](https://en.wikipedia.org/wiki/ZFS)
 filesystem, both of which I admire.
 
+I finished implementing insert with overflow for leaf nodes, like you can insert
+into an already full leaf and it will split itself and give you both the key to
+put in the parent branch node and its new sibling leaf node.
+
+I was struggling to implement the splitting because the `ArrayVec`s were
+configured to only allow the "correct" number of keys and values to fill the
+leaf. You'd need to consider where the incoming key and value fit in the
+ordering without actually inserting it in its place in the list. Either by
+constructing a new list, or iterating over the old one as you construct the new
+leaves and constantly checking whether the incoming stuff should go here. That's
+poorly explained, but it was challenging for me to understand, and ultimately I
+abandoned that strategy.
+
+After giving up and adding one more space in the `ArrayVec`s to "overflow" a
+leaf, I was able to insert the incoming key and value into their expected
+position and everything else fell into place so nicely. I don't know if the
+literature and videos I was referencing were referring to "overflow" as a
+pedagogical hand waving, or if that's literally how you're supposed to implement
+it. I was thinking the former, but maybe I'm wrong. For now, I'll keep the extra
+spot for overflow, because it makes for a vastly simpler implementation!
+
 ## 2025-12-19
 
 Watching Dmitrii Dolgov's "Modern B-Tree techniques" talk at Strange Loop 2022
