@@ -129,19 +129,19 @@ impl<K, V> Node<K, V> {
         K: Ord,
     {
         let mut node = self;
-        let mut branch_indices = ArrayVec::new();
+        let mut branches = ArrayVec::new();
         loop {
             match node {
                 Node::Branch(branch) => {
                     let index = branch.search(key);
-                    branch_indices.push(index);
+                    branches.push(index);
                     node = &branch.children[index];
                     continue;
                 }
                 Node::Leaf(leaf) => {
                     break NodeSearchResult {
-                        branch_indices,
-                        leaf_index: leaf.search(key),
+                        branches,
+                        leaf: leaf.search(key),
                     };
                 }
             }
@@ -224,8 +224,8 @@ impl<K, V> Default for Node<K, V> {
 }
 
 struct NodeSearchResult {
-    branch_indices: ArrayVec<usize, H_MAX>,
-    leaf_index: LeafSearchResult,
+    branches: ArrayVec<usize, H_MAX>,
+    leaf: LeafSearchResult,
 }
 
 #[derive(Clone)]
