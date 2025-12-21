@@ -346,12 +346,10 @@ impl<K, V> NodeLeaf<K, V> {
 
     fn split(&mut self) -> Self {
         assert!(self.is_full(), "Only full leaves are split");
-        let mut sibling = Self::new();
-        for _ in 0..M / 2 {
-            sibling.keys.insert(0, self.keys.pop().unwrap());
-            sibling.values.insert(0, self.values.pop().unwrap());
+        Self {
+            keys: self.keys.drain(M / 2..).collect(),
+            values: self.values.drain(M / 2..).collect(),
         }
-        sibling
     }
 
     fn insert1(&mut self, key: K, value: V) -> Result<Option<V>, (K, V)>
