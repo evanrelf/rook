@@ -88,6 +88,10 @@ impl<K, V> Default for BTreeMap<K, V> {
 const M: usize = 42; // TODO: Choose a real value
 #[cfg(test)]
 const M: usize = 4;
+const _: () = assert!(
+    M.is_multiple_of(2),
+    "Branching factor must be a multiple of 2"
+);
 
 /// Minimum possible height of the tree
 ///
@@ -107,10 +111,8 @@ const H_MIN: usize = 0;
 ///
 /// [1]: https://en.wikipedia.org/wiki/B-tree#Best_case_and_worst_case_heights
 /// [2]: https://www.wolframalpha.com/input?i=limit+of+%28floor%28log+base+2+of+%28%28n+%2B+1%29+%2F+2%29%29%29+as+n+approaches+1+trillion
-const H_MAX: usize = {
-    assert!(M >= 4, "`H_MAX` assumes branching factor >= 4");
-    38
-};
+const H_MAX: usize = 38;
+const _: () = assert!(M >= 4, "`H_MAX` assumes branching factor >= 4");
 
 #[cfg_attr(not(test), expect(clippy::large_enum_variant))]
 #[derive(Clone)]
