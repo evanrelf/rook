@@ -91,10 +91,6 @@ impl<K, V> Default for BTreeMap<K, V> {
 const M: usize = 42; // TODO: Choose a real value
 #[cfg(test)]
 const M: usize = 4;
-const _: () = assert!(
-    M.is_multiple_of(2),
-    "Branching factor must be a multiple of 2"
-);
 
 /// Minimum possible height of the tree
 ///
@@ -369,17 +365,20 @@ impl<K, V> NodeLeaf<K, V> {
                     self.values.insert(index, value);
                     return LeafInsertResult::Inserted;
                 }
+                let self_len = (M + 1).div_ceil(2);
+                #[expect(clippy::manual_div_ceil)] // Erroneous lint
+                let sibling_len = (M + 1) / 2;
                 let mut sibling = Self {
-                    keys: self.keys.drain(M / 2 + 1..).collect(),
-                    values: self.values.drain(M / 2 + 1..).collect(),
+                    keys: self.keys.drain(self_len..).collect(),
+                    values: self.values.drain(self_len..).collect(),
                 };
                 assert!(matches!(
                     sibling.insert(key, value),
                     LeafInsertResult::Inserted
                 ));
                 let parent_key = sibling.keys[0].clone();
-                assert_eq!(self.keys.len(), (M / 2) + 1);
-                assert_eq!(sibling.keys.len(), M / 2);
+                assert_eq!(self.keys.len(), self_len);
+                assert_eq!(sibling.keys.len(), sibling_len);
                 LeafInsertResult::Split(parent_key, sibling)
             }
         }
@@ -468,6 +467,18 @@ enum LeafInsertResult<K, V> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[expect(clippy::manual_div_ceil)] // Erroneous lint
+    #[test]
+    fn len_after_split() {
+        // NOTE: `div_floor` is unstable, so we use `/` which does the same thing.
+        let m = 4usize;
+        assert_eq!((m + 1).div_ceil(2), 3);
+        assert_eq!((m + 1) / 2, 2);
+        let m = 5usize;
+        assert_eq!((m + 1).div_ceil(2), 3);
+        assert_eq!((m + 1) / 2, 3);
+    }
 
     #[test]
     fn leaf_no_split() {
