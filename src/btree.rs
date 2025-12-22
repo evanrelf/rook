@@ -121,6 +121,23 @@ impl<K, V> Default for BTreeMap<K, V> {
     }
 }
 
+impl<K, V> Extend<(K, V)> for BTreeMap<K, V>
+where
+    K: Clone + Ord,
+    V: Clone,
+{
+    fn extend<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = (K, V)>,
+    {
+        // TODO: Use more efficient bulk-loading algorithm:
+        // https://en.wikipedia.org/wiki/B%2B_tree#Bulk-loading
+        for (key, value) in iter {
+            self.insert(key, value);
+        }
+    }
+}
+
 /// Branching factor of the tree
 ///
 /// Also represents the maximum number of children a node can have.
