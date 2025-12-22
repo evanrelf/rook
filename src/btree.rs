@@ -28,7 +28,12 @@ impl<K, V> BTreeMap<K, V> {
         match root.insert(key, value) {
             NodeInsertResult::Replaced(previous_value) => Some(previous_value),
             NodeInsertResult::Inserted => None,
+            // Branch and leaf nodes implement insert-with-split by returning their sibling and the
+            // key they'd like inserted in their parent. Only the root node is capable of creating
+            // itself a new parent.
             NodeInsertResult::Split(parent_key, child_right) => {
+                // Root node becomes the parent to the incoming `child_right` and its former self
+                // (now called `child_left`).
                 let child_left = {
                     let parent = Node::Branch(NodeBranch {
                         keys: ArrayVec::new(),
@@ -36,6 +41,7 @@ impl<K, V> BTreeMap<K, V> {
                     });
                     mem::replace(root, parent)
                 };
+
                 let child_left_max = &child_left.keys()[child_left.keys().len() - 1];
                 let child_right_min = &child_right.keys()[0];
                 assert!(child_left_max < child_right_min, "Left child < right child");
@@ -44,12 +50,14 @@ impl<K, V> BTreeMap<K, V> {
                     *child_right_min == parent_key,
                     "Right child min == parent key"
                 );
+
                 let Node::Branch(parent) = root else {
                     unreachable!()
                 };
                 parent.keys.push(parent_key);
                 parent.children.push(Arc::new(child_left));
                 parent.children.push(Arc::new(child_right));
+
                 None
             }
         }
@@ -295,7 +303,7 @@ impl<K, V> NodeBranch<K, V> {
     {
         self.keys
             .iter()
-            .position(|k| k > key)
+            .position(|k| key < k)
             .unwrap_or(self.keys.len() - 1)
     }
 
@@ -323,7 +331,8 @@ impl<K, V> NodeBranch<K, V> {
         K: Ord,
     {
         let index = self.search(key);
-        self.children[index].get(key)
+        let child = &self.children[index];
+        child.get(key)
     }
 
     fn get_mut(&mut self, key: &K) -> Option<&mut V>
@@ -332,7 +341,8 @@ impl<K, V> NodeBranch<K, V> {
         V: Clone,
     {
         let index = self.search(key);
-        Arc::make_mut(&mut self.children[index]).get_mut(key)
+        let child = Arc::make_mut(&mut self.children[index]);
+        child.get_mut(key)
     }
 
     fn contains_key(&self, key: &K) -> bool
@@ -340,7 +350,8 @@ impl<K, V> NodeBranch<K, V> {
         K: Ord,
     {
         let index = self.search(key);
-        self.children[index].contains_key(key)
+        let child = &self.children[index];
+        child.contains_key(key)
     }
 
     fn is_empty(&self) -> bool {
@@ -426,6 +437,7 @@ impl<K, V> NodeLeaf<K, V> {
                     self.values.insert(index, value);
                     return NodeInsertResult::Inserted;
                 }
+
                 let self_len = (M + 1).div_ceil(2);
                 let sibling_len = (M + 1) / 2;
                 let mut sibling = Self {
