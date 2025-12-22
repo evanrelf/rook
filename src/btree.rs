@@ -189,6 +189,13 @@ impl<K, V> Node<K, V> {
         }
     }
 
+    fn keys(&self) -> &[K] {
+        match self {
+            Node::Branch(branch) => branch.keys.as_slice(),
+            Node::Leaf(leaf) => leaf.keys.as_slice(),
+        }
+    }
+
     fn is_empty(&self) -> bool {
         match self {
             Node::Branch(branch) => branch.is_empty(),
