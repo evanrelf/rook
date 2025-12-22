@@ -257,7 +257,7 @@ impl<K, V> NodeBranch<K, V> {
             .unwrap_or(self.keys.len() - 1)
     }
 
-    fn insert(&mut self, key: K, value: V) -> Option<V> {
+    fn insert(&mut self, key: K, value: V) -> BranchInsertResult<K, V> {
         todo!()
     }
 
@@ -332,6 +332,13 @@ impl<K, V> NodeBranch<K, V> {
             child.assert_invariants(depth + 1);
         }
     }
+}
+
+#[cfg_attr(not(test), expect(clippy::large_enum_variant))]
+enum BranchInsertResult<K, V> {
+    Replaced(V),
+    Inserted,
+    Split(K, NodeBranch<K, V>),
 }
 
 #[derive(Clone)]
