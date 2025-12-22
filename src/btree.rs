@@ -490,10 +490,6 @@ impl<K, V> NodeLeaf<K, V> {
     }
 
     fn is_full(&self) -> bool {
-        self.keys.len() == M
-    }
-
-    fn is_overflowing(&self) -> bool {
         self.keys.is_full()
     }
 
