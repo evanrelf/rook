@@ -29,13 +29,13 @@ impl<K, V> BTreeMap<K, V> {
             NodeInsertResult::Replaced(previous_value) => Some(previous_value),
             NodeInsertResult::Inserted => None,
             NodeInsertResult::Split(parent_key, child_right) => {
-                let child_left = mem::replace(
-                    root,
-                    Node::Branch(NodeBranch {
+                let child_left = {
+                    let parent = Node::Branch(NodeBranch {
                         keys: ArrayVec::new(),
                         children: ArrayVec::new(),
-                    }),
-                );
+                    });
+                    mem::replace(root, parent)
+                };
                 let child_left_max = &child_left.keys()[child_left.keys().len() - 1];
                 let child_right_min = &child_right.keys()[0];
                 assert!(child_left_max < child_right_min, "Left child < right child");
