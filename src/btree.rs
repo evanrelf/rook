@@ -183,20 +183,8 @@ impl<K, V> Node<K, V> {
         K: Clone + Ord,
     {
         match self {
-            Node::Branch(branch) => match branch.insert(key, value) {
-                BranchInsertResult::Replaced(value) => NodeInsertResult::Replaced(value),
-                BranchInsertResult::Inserted => NodeInsertResult::Inserted,
-                BranchInsertResult::Split(parent_key, sibling_branch) => {
-                    NodeInsertResult::Split(parent_key, Self::Branch(sibling_branch))
-                }
-            },
-            Node::Leaf(leaf) => match leaf.insert(key, value) {
-                LeafInsertResult::Replaced(value) => NodeInsertResult::Replaced(value),
-                LeafInsertResult::Inserted => NodeInsertResult::Inserted,
-                LeafInsertResult::Split(parent_key, sibling_leaf) => {
-                    NodeInsertResult::Split(parent_key, Self::Leaf(sibling_leaf))
-                }
-            },
+            Node::Branch(branch) => branch.insert(key, value),
+            Node::Leaf(leaf) => leaf.insert(key, value),
         }
     }
 
@@ -310,7 +298,7 @@ impl<K, V> NodeBranch<K, V> {
             .unwrap_or(self.keys.len() - 1)
     }
 
-    fn insert(&mut self, key: K, value: V) -> BranchInsertResult<K, V> {
+    fn insert(&mut self, key: K, value: V) -> NodeInsertResult<K, V> {
         todo!()
     }
 
@@ -387,13 +375,6 @@ impl<K, V> NodeBranch<K, V> {
     }
 }
 
-#[cfg_attr(not(test), expect(clippy::large_enum_variant))]
-enum BranchInsertResult<K, V> {
-    Replaced(V),
-    Inserted,
-    Split(K, NodeBranch<K, V>),
-}
-
 #[derive(Clone)]
 struct NodeLeaf<K, V> {
     keys: ArrayVec<K, M>,
@@ -418,20 +399,20 @@ impl<K, V> NodeLeaf<K, V> {
         }
     }
 
-    fn insert(&mut self, key: K, value: V) -> LeafInsertResult<K, V>
+    fn insert(&mut self, key: K, value: V) -> NodeInsertResult<K, V>
     where
         K: Clone + Ord,
     {
         match self.search(&key) {
             LeafSearchResult::Found(index) => {
                 let previous_value = mem::replace(&mut self.values[index], value);
-                LeafInsertResult::Replaced(previous_value)
+                NodeInsertResult::Replaced(previous_value)
             }
             LeafSearchResult::Missing(index) => {
                 if !self.is_full() {
                     self.keys.insert(index, key);
                     self.values.insert(index, value);
-                    return LeafInsertResult::Inserted;
+                    return NodeInsertResult::Inserted;
                 }
                 let self_len = (M + 1).div_ceil(2);
                 let sibling_len = (M + 1) / 2;
@@ -441,12 +422,12 @@ impl<K, V> NodeLeaf<K, V> {
                 };
                 assert!(matches!(
                     sibling.insert(key, value),
-                    LeafInsertResult::Inserted
+                    NodeInsertResult::Inserted
                 ));
                 let parent_key = sibling.keys[0].clone();
                 assert_eq!(self.keys.len(), self_len);
                 assert_eq!(sibling.keys.len(), sibling_len);
-                LeafInsertResult::Split(parent_key, sibling)
+                NodeInsertResult::Split(parent_key, Node::Leaf(sibling))
             }
         }
     }
@@ -525,12 +506,6 @@ enum LeafSearchResult {
     Missing(usize),
 }
 
-enum LeafInsertResult<K, V> {
-    Replaced(V),
-    Inserted,
-    Split(K, NodeLeaf<K, V>),
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -550,10 +525,10 @@ mod tests {
     fn leaf_no_split() {
         let mut leaf = NodeLeaf::new();
 
-        assert!(matches!(leaf.insert(1, 11), LeafInsertResult::Inserted));
-        assert!(matches!(leaf.insert(2, 22), LeafInsertResult::Inserted));
-        assert!(matches!(leaf.insert(3, 33), LeafInsertResult::Inserted));
-        assert!(matches!(leaf.insert(4, 44), LeafInsertResult::Inserted));
+        assert!(matches!(leaf.insert(1, 11), NodeInsertResult::Inserted));
+        assert!(matches!(leaf.insert(2, 22), NodeInsertResult::Inserted));
+        assert!(matches!(leaf.insert(3, 33), NodeInsertResult::Inserted));
+        assert!(matches!(leaf.insert(4, 44), NodeInsertResult::Inserted));
 
         assert_eq!(leaf.get(&1), Some(&11));
         *leaf.get_mut(&2).unwrap() = 29;
@@ -569,11 +544,11 @@ mod tests {
     fn leaf_split() {
         let mut leaf1 = NodeLeaf::new();
 
-        assert!(matches!(leaf1.insert(1, 11), LeafInsertResult::Inserted));
-        assert!(matches!(leaf1.insert(2, 22), LeafInsertResult::Inserted));
-        assert!(matches!(leaf1.insert(3, 33), LeafInsertResult::Inserted));
-        assert!(matches!(leaf1.insert(4, 44), LeafInsertResult::Inserted));
-        let LeafInsertResult::Split(parent_key, leaf2) = leaf1.insert(5, 55) else {
+        assert!(matches!(leaf1.insert(1, 11), NodeInsertResult::Inserted));
+        assert!(matches!(leaf1.insert(2, 22), NodeInsertResult::Inserted));
+        assert!(matches!(leaf1.insert(3, 33), NodeInsertResult::Inserted));
+        assert!(matches!(leaf1.insert(4, 44), NodeInsertResult::Inserted));
+        let NodeInsertResult::Split(parent_key, Node::Leaf(leaf2)) = leaf1.insert(5, 55) else {
             panic!();
         };
 
