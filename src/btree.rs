@@ -21,10 +21,38 @@ impl<K, V> BTreeMap<K, V> {
     /// Insert an entry, returning the existing value if present
     pub fn insert(&mut self, key: K, value: V) -> Option<V>
     where
-        K: Clone,
+        K: Clone + Ord,
         V: Clone,
     {
-        Arc::make_mut(&mut self.root).insert(key, value)
+        let root = Arc::make_mut(&mut self.root);
+        match root.insert(key, value) {
+            NodeInsertResult::Replaced(previous_value) => Some(previous_value),
+            NodeInsertResult::Inserted => None,
+            NodeInsertResult::Split(parent_key, child_right) => {
+                let child_left = mem::replace(
+                    root,
+                    Node::Branch(NodeBranch {
+                        keys: ArrayVec::new(),
+                        children: ArrayVec::new(),
+                    }),
+                );
+                let child_left_max = &child_left.keys()[child_left.keys().len() - 1];
+                let child_right_min = &child_right.keys()[0];
+                assert!(child_left_max < child_right_min, "Left child < right child");
+                assert!(*child_left_max < parent_key, "Left child max < parent key");
+                assert!(
+                    *child_right_min == parent_key,
+                    "Right child min == parent key"
+                );
+                let Node::Branch(parent) = root else {
+                    unreachable!()
+                };
+                parent.keys.push(parent_key);
+                parent.children.push(Arc::new(child_left));
+                parent.children.push(Arc::new(child_right));
+                None
+            }
+        }
     }
 
     /// Remove an entry, returning the existing value if present
@@ -150,8 +178,26 @@ impl<K, V> Node<K, V> {
         }
     }
 
-    fn insert(&mut self, key: K, value: V) -> Option<V> {
-        todo!()
+    fn insert(&mut self, key: K, value: V) -> NodeInsertResult<K, V>
+    where
+        K: Clone + Ord,
+    {
+        match self {
+            Node::Branch(branch) => match branch.insert(key, value) {
+                BranchInsertResult::Replaced(value) => NodeInsertResult::Replaced(value),
+                BranchInsertResult::Inserted => NodeInsertResult::Inserted,
+                BranchInsertResult::Split(parent_key, sibling_branch) => {
+                    NodeInsertResult::Split(parent_key, Self::Branch(sibling_branch))
+                }
+            },
+            Node::Leaf(leaf) => match leaf.insert(key, value) {
+                LeafInsertResult::Replaced(value) => NodeInsertResult::Replaced(value),
+                LeafInsertResult::Inserted => NodeInsertResult::Inserted,
+                LeafInsertResult::Split(parent_key, sibling_leaf) => {
+                    NodeInsertResult::Split(parent_key, Self::Leaf(sibling_leaf))
+                }
+            },
+        }
     }
 
     fn remove(&mut self, key: &K) -> Option<V> {
@@ -238,6 +284,13 @@ impl<K, V> Default for Node<K, V> {
 struct NodeSearchResult {
     branches: ArrayVec<usize, H_MAX>,
     leaf: LeafSearchResult,
+}
+
+#[cfg_attr(not(test), expect(clippy::large_enum_variant))]
+enum NodeInsertResult<K, V> {
+    Replaced(V),
+    Inserted,
+    Split(K, Node<K, V>),
 }
 
 #[derive(Clone)]
@@ -531,5 +584,17 @@ mod tests {
 
         assert_eq!(leaf2.keys.as_slice(), &[4, 5]);
         assert_eq!(leaf2.values.as_slice(), &[44, 55]);
+    }
+
+    #[test]
+    fn tree_leaf_split() {
+        let mut tree = BTreeMap::new();
+        assert!(tree.insert(1, 11).is_none());
+        assert!(tree.insert(2, 22).is_none());
+        assert!(tree.insert(3, 33).is_none());
+        assert!(tree.insert(4, 44).is_none());
+        assert!(tree.root.is_leaf());
+        assert!(tree.insert(5, 55).is_none());
+        assert!(tree.root.is_branch());
     }
 }
