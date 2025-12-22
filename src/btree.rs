@@ -548,6 +548,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn big_insert() {
+        let mut map = BTreeMap::new();
+        for i in 0..1000u16 {
+            map.insert(i, i);
+        }
+        for i in 0..1000u16 {
+            assert_eq!(map.get(&i), Some(&i));
+        }
+    }
+
+    #[test]
     fn len_after_split() {
         // NOTE: `div_floor` is unstable, so we use `/` which does the same thing.
         let m = 4usize;
