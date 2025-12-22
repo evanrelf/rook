@@ -181,6 +181,7 @@ impl<K, V> Node<K, V> {
     fn insert(&mut self, key: K, value: V) -> NodeInsertResult<K, V>
     where
         K: Clone + Ord,
+        V: Clone,
     {
         match self {
             Node::Branch(branch) => branch.insert(key, value),
@@ -298,8 +299,45 @@ impl<K, V> NodeBranch<K, V> {
             .unwrap_or(self.keys.len() - 1)
     }
 
-    fn insert(&mut self, key: K, value: V) -> NodeInsertResult<K, V> {
-        todo!()
+    fn adopt(&mut self, key: K, child: Node<K, V>)
+    where
+        K: Ord,
+    {
+        assert!(!self.is_full(), "Only non-full branches adopt children");
+        match self.keys.binary_search(&key) {
+            Ok(_index) => todo!("wtf we already have the key"),
+            Err(index) => todo!(),
+        }
+    }
+
+    fn insert(&mut self, key: K, value: V) -> NodeInsertResult<K, V>
+    where
+        K: Clone + Ord,
+        V: Clone,
+    {
+        let index = self.search(&key);
+        let child = Arc::make_mut(&mut self.children[index]);
+        match child.insert(key, value) {
+            NodeInsertResult::Split(key, child) => {
+                if !self.is_full() {
+                    self.adopt(key, child);
+                    return NodeInsertResult::Inserted;
+                }
+                let self_len = (M + 1).div_ceil(2);
+                let sibling_len = (M + 1) / 2;
+                let mut sibling = Self {
+                    keys: self.keys.drain(self_len..).collect(),
+                    // TODO: + 1 is a total guess
+                    children: self.children.drain(self_len + 1..).collect(),
+                };
+                sibling.adopt(key, child);
+                let parent_key = sibling.keys[0].clone();
+                assert_eq!(self.keys.len(), self_len);
+                assert_eq!(sibling.keys.len(), sibling_len);
+                NodeInsertResult::Split(parent_key, Node::Branch(sibling))
+            }
+            no_split => no_split,
+        }
     }
 
     fn remove(&mut self, key: &K) -> Option<V> {
