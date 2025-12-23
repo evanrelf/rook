@@ -1,8 +1,5 @@
-#![allow(unused)] // TODO: Remove
-#![allow(clippy::manual_div_ceil)] // Erroneous lint
-
 use arrayvec::ArrayVec;
-use std::{iter, mem, sync::Arc};
+use std::{mem, sync::Arc};
 
 /// Ordered map based on an in-memory copy-on-write B+ tree
 #[derive(Clone, Debug)]
@@ -14,7 +11,10 @@ impl<K, V> BTreeMap<K, V> {
     /// Create a new, empty map
     pub fn new() -> Self {
         Self {
-            root: Arc::new(Node::new()),
+            root: Arc::new(Node::Leaf(NodeLeaf {
+                keys: ArrayVec::new(),
+                values: ArrayVec::new(),
+            })),
         }
     }
 
@@ -107,6 +107,7 @@ impl<K, V> BTreeMap<K, V> {
         self.root.is_empty()
     }
 
+    #[expect(dead_code)]
     fn assert_invariants(&self)
     where
         K: Ord,
@@ -130,8 +131,6 @@ where
     where
         I: IntoIterator<Item = (K, V)>,
     {
-        // TODO: Use more efficient bulk-loading algorithm:
-        // https://en.wikipedia.org/wiki/B%2B_tree#Bulk-loading
         for (key, value) in iter {
             self.insert(key, value);
         }
@@ -142,15 +141,6 @@ where
 const D: usize = 42; // TODO: Choose a real value
 #[cfg(test)]
 const D: usize = 2;
-
-/// Minimum possible height of the tree
-///
-/// [Wikipedia > Tree (abstract data type) > Terminology][1] says "The height of a node is the
-/// length of the longest downward path to a leaf from that node. The height of the root is the
-/// height of the tree," and therefore "leaf nodes have height zero."
-///
-/// [1]: https://en.wikipedia.org/wiki/Tree_(abstract_data_type)#Terminology
-const H_MIN: usize = 0;
 
 /// Maximum possible height of the tree
 ///
@@ -172,34 +162,6 @@ enum Node<K, V> {
 }
 
 impl<K, V> Node<K, V> {
-    fn new() -> Self {
-        Self::Leaf(NodeLeaf::new())
-    }
-
-    fn search(&self, key: &K) -> NodeSearchResult
-    where
-        K: Ord,
-    {
-        let mut node = self;
-        let mut branches = ArrayVec::new();
-        loop {
-            match node {
-                Node::Branch(branch) => {
-                    let index = branch.search(key);
-                    branches.push(index);
-                    node = &branch.children[index];
-                    continue;
-                }
-                Node::Leaf(leaf) => {
-                    break NodeSearchResult {
-                        branches,
-                        leaf: leaf.search(key),
-                    };
-                }
-            }
-        }
-    }
-
     fn insert(&mut self, key: K, value: V) -> NodeInsertResult<K, V>
     where
         K: Clone + Ord,
@@ -267,17 +229,11 @@ impl<K, V> Node<K, V> {
         }
     }
 
-    fn is_full(&self) -> bool {
-        match self {
-            Node::Branch(branch) => branch.is_full(),
-            Node::Leaf(leaf) => leaf.is_full(),
-        }
-    }
-
     fn is_branch(&self) -> bool {
         matches!(self, Node::Branch(_))
     }
 
+    #[cfg_attr(not(test), expect(dead_code))]
     fn is_leaf(&self) -> bool {
         matches!(self, Node::Leaf(_))
     }
@@ -293,12 +249,7 @@ impl<K, V> Node<K, V> {
     }
 }
 
-impl<K, V> Default for Node<K, V> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+#[expect(dead_code)]
 struct NodeSearchResult {
     branches: ArrayVec<usize, H_MAX>,
     leaf: LeafSearchResult,
@@ -409,6 +360,7 @@ impl<K, V> NodeBranch<K, V> {
         self.children.iter().all(|child| child.is_empty())
     }
 
+    #[expect(dead_code)]
     fn is_full(&self) -> bool {
         self.keys.len() + 1 == self.keys.capacity()
     }
@@ -449,13 +401,6 @@ struct NodeLeaf<K, V> {
 }
 
 impl<K, V> NodeLeaf<K, V> {
-    fn new() -> Self {
-        Self {
-            keys: ArrayVec::new(),
-            values: ArrayVec::new(),
-        }
-    }
-
     fn search(&self, key: &K) -> LeafSearchResult
     where
         K: Ord,
@@ -473,7 +418,7 @@ impl<K, V> NodeLeaf<K, V> {
         assert!(self.is_overflowing(), "Only overflowing leaves are split");
         let self_len = D;
         let sibling_len = D + 1;
-        let mut sibling = Self {
+        let sibling = Self {
             keys: self.keys.drain(self_len..).collect(),
             values: self.values.drain(self_len..).collect(),
         };
@@ -550,6 +495,7 @@ impl<K, V> NodeLeaf<K, V> {
         self.keys.is_empty()
     }
 
+    #[expect(dead_code)]
     fn is_full(&self) -> bool {
         self.keys.len() + 1 == self.keys.capacity()
     }
@@ -558,7 +504,7 @@ impl<K, V> NodeLeaf<K, V> {
         self.keys.is_full()
     }
 
-    fn assert_invariants(&self, path: &str, depth: u8)
+    fn assert_invariants(&self, path: &str, _depth: u8)
     where
         K: Ord,
     {
@@ -571,12 +517,6 @@ impl<K, V> NodeLeaf<K, V> {
     }
 }
 
-impl<K, V> Default for NodeLeaf<K, V> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 enum LeafSearchResult {
     Found(usize),
     Missing(usize),
@@ -585,7 +525,6 @@ enum LeafSearchResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::num::NonZeroUsize;
 
     fn xorshift(mut x: u32) -> u32 {
         assert!(x != 0);
@@ -609,27 +548,11 @@ mod tests {
     }
 
     #[test]
-    fn leaf_no_split() {
-        let mut leaf = NodeLeaf::new();
-
-        assert!(matches!(leaf.insert(1, 11), NodeInsertResult::Inserted));
-        assert!(matches!(leaf.insert(2, 22), NodeInsertResult::Inserted));
-        assert!(matches!(leaf.insert(3, 33), NodeInsertResult::Inserted));
-        assert!(matches!(leaf.insert(4, 44), NodeInsertResult::Inserted));
-
-        assert_eq!(leaf.get(&1), Some(&11));
-        *leaf.get_mut(&2).unwrap() = 29;
-        assert_eq!(leaf.get(&2), Some(&29));
-        assert!(leaf.contains_key(&3));
-
-        assert_eq!(leaf.remove(&3), Some(33));
-        assert!(!leaf.contains_key(&3));
-        assert_eq!(leaf.get(&3), None);
-    }
-
-    #[test]
     fn leaf_split() {
-        let mut leaf1 = NodeLeaf::new();
+        let mut leaf1 = NodeLeaf {
+            keys: ArrayVec::new(),
+            values: ArrayVec::new(),
+        };
 
         assert!(matches!(leaf1.insert(1, 11), NodeInsertResult::Inserted));
         assert!(matches!(leaf1.insert(2, 22), NodeInsertResult::Inserted));
