@@ -131,6 +131,8 @@ where
     where
         I: IntoIterator<Item = (K, V)>,
     {
+        // TODO: Use more efficient bulk-loading algorithm:
+        // https://cs186berkeley.net/notes/note4/#bulk-loading
         for (key, value) in iter {
             self.insert(key, value);
         }
