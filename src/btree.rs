@@ -432,8 +432,8 @@ impl<K, V> NodeBranch<K, V> {
             "4. All leaves appear on the same level."
         );
         assert!(
-            self.children.len() == self.keys.len() - 1,
-            "5. A non-leaf node with k children contains_key k−1 keys."
+            self.children.len() - 1 == self.keys.len(),
+            "5. A non-leaf node with k children contains k−1 keys."
         );
         // TODO: Assert ordering is correct (e.g. keys to the left are less than). Could pass child
         // bounds and have it check itself.
