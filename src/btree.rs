@@ -71,7 +71,7 @@ impl<K, V> BTreeMap<K, V> {
     /// [1]: https://doi.org/10.1145/2540068
     pub fn remove(&mut self, key: &K) -> Option<V>
     where
-        K: Clone,
+        K: Clone + Ord,
         V: Clone,
     {
         Arc::make_mut(&mut self.root).remove(key)
@@ -211,8 +211,15 @@ impl<K, V> Node<K, V> {
         }
     }
 
-    fn remove(&mut self, key: &K) -> Option<V> {
-        todo!()
+    fn remove(&mut self, key: &K) -> Option<V>
+    where
+        K: Clone + Ord,
+        V: Clone,
+    {
+        match self {
+            Node::Branch(branch) => branch.remove(key),
+            Node::Leaf(leaf) => leaf.remove(key),
+        }
     }
 
     fn get(&self, key: &K) -> Option<&V>
@@ -360,8 +367,14 @@ impl<K, V> NodeBranch<K, V> {
         }
     }
 
-    fn remove(&mut self, key: &K) -> Option<V> {
-        todo!()
+    fn remove(&mut self, key: &K) -> Option<V>
+    where
+        K: Clone + Ord,
+        V: Clone,
+    {
+        let index = self.search(key);
+        let child = Arc::make_mut(&mut self.children[index]);
+        child.remove(key)
     }
 
     fn get(&self, key: &K) -> Option<&V>
@@ -393,7 +406,7 @@ impl<K, V> NodeBranch<K, V> {
     }
 
     fn is_empty(&self) -> bool {
-        false
+        self.children.iter().all(|child| child.is_empty())
     }
 
     fn is_full(&self) -> bool {
@@ -590,8 +603,9 @@ mod tests {
             map.insert(x, x);
         }
         for x in (1..=count).map(xorshift) {
-            assert_eq!(map.get(&x), Some(&x));
+            assert_eq!(map.remove(&x), Some(x));
         }
+        assert!(map.is_empty());
     }
 
     #[test]
