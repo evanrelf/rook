@@ -111,7 +111,7 @@ impl<K, V> BTreeMap<K, V> {
     where
         K: Ord,
     {
-        self.root.assert_invariants(0);
+        self.root.assert_invariants("root", 0);
     }
 }
 
@@ -275,13 +275,13 @@ impl<K, V> Node<K, V> {
         matches!(self, Node::Leaf(_))
     }
 
-    fn assert_invariants(&self, depth: u8)
+    fn assert_invariants(&self, path: &str, depth: u8)
     where
         K: Ord,
     {
         match self {
-            Node::Branch(branch) => branch.assert_invariants(depth),
-            Node::Leaf(leaf) => leaf.assert_invariants(depth),
+            Node::Branch(branch) => branch.assert_invariants(path, depth),
+            Node::Leaf(leaf) => leaf.assert_invariants(path, depth),
         }
     }
 }
@@ -404,17 +404,27 @@ impl<K, V> NodeBranch<K, V> {
         self.keys.is_full()
     }
 
-    fn assert_invariants(&self, depth: u8)
+    fn assert_invariants(&self, path: &str, depth: u8)
     where
         K: Ord,
     {
-        assert_eq!(self.keys.len() + 1, self.children.len());
-        assert!(!self.is_overflowing());
+        assert_eq!(
+            self.keys.len() + 1,
+            self.children.len(),
+            "{path}: keys.len() + 1 != children.len()"
+        );
+        assert!(!self.is_overflowing(), "{path}: overflowing");
         // TODO: Assert all leaves are at the same depth.
         // TODO: Assert ordering is correct (e.g. keys to the left are less than). Could pass child
         // bounds and have it check itself.
-        for child in &self.children {
-            child.assert_invariants(depth + 1);
+        for (i, child) in self.children.iter().enumerate() {
+            child.assert_invariants(
+                &format!(
+                    "{path}->{}{i}",
+                    if child.is_branch() { "branch" } else { "leaf" }
+                ),
+                depth + 1,
+            );
         }
     }
 }
@@ -535,13 +545,16 @@ impl<K, V> NodeLeaf<K, V> {
         self.keys.is_full()
     }
 
-    fn assert_invariants(&self, depth: u8)
+    fn assert_invariants(&self, path: &str, depth: u8)
     where
         K: Ord,
     {
-        assert!(self.keys.len() == self.values.len(), "All keys have values");
-        assert!(!self.is_overflowing(), "Not overflowing");
-        assert!(self.keys.is_sorted(), "Keys are sorted");
+        assert!(
+            self.keys.len() == self.values.len(),
+            "{path}: keys.len() != values.len()"
+        );
+        assert!(!self.is_overflowing(), "{path}: overflowing");
+        assert!(self.keys.is_sorted(), "{path}: keys are not sorted");
     }
 }
 
