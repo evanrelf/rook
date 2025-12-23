@@ -320,8 +320,8 @@ impl<K, V> NodeBranch<K, V> {
     {
         self.keys
             .iter()
-            .position(|k| key < k)
-            .unwrap_or(self.keys.len() - 1)
+            .position(|k| k > key)
+            .unwrap_or(self.children.len() - 1)
     }
 
     fn split(&mut self) -> (K, Self)
