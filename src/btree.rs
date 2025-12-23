@@ -138,13 +138,10 @@ where
     }
 }
 
-/// Branching factor of the tree
-///
-/// Also represents the maximum number of children a node can have.
 #[cfg(not(test))]
-const M: usize = 42; // TODO: Choose a real value
+const D: usize = 42; // TODO: Choose a real value
 #[cfg(test)]
-const M: usize = 4;
+const D: usize = 2;
 
 /// Minimum possible height of the tree
 ///
@@ -165,7 +162,7 @@ const H_MIN: usize = 0;
 /// [1]: https://en.wikipedia.org/wiki/B-tree#Best_case_and_worst_case_heights
 /// [2]: https://www.wolframalpha.com/input?i=limit+of+%28floor%28log+base+2+of+%28%28n+%2B+1%29+%2F+2%29%29%29+as+n+approaches+1+trillion
 const H_MAX: usize = 38;
-const _: () = assert!(M >= 4, "`H_MAX` assumes branching factor >= 4");
+const _: () = assert!(D >= 2, "`H_MAX` assumes `D` >= 2");
 
 #[cfg_attr(not(test), expect(clippy::large_enum_variant))]
 #[derive(Clone, Debug)]
@@ -309,8 +306,8 @@ enum NodeInsertResult<K, V> {
 
 #[derive(Clone, Debug)]
 struct NodeBranch<K, V> {
-    keys: ArrayVec<K, M>,
-    children: ArrayVec<Arc<Node<K, V>>, { M + 1 }>,
+    keys: ArrayVec<K, { (2 * D) + 1 }>,
+    children: ArrayVec<Arc<Node<K, V>>, { (2 * D) + 2 }>,
 }
 
 impl<K, V> NodeBranch<K, V> {
@@ -329,8 +326,8 @@ impl<K, V> NodeBranch<K, V> {
         K: Clone,
     {
         assert!(self.is_overflowing(), "Only overflowing branches are split");
-        let self_len = M / 2;
-        let sibling_len = M.div_ceil(2);
+        let self_len = D;
+        let sibling_len = D + 1;
         let mut sibling = Self {
             keys: self.keys.drain(self_len..).collect(),
             children: self.children.drain(self_len..).collect(),
@@ -400,7 +397,7 @@ impl<K, V> NodeBranch<K, V> {
     }
 
     fn is_full(&self) -> bool {
-        self.keys.len() == M - 1
+        self.keys.len() + 1 == self.keys.capacity()
     }
 
     fn is_overflowing(&self) -> bool {
@@ -411,30 +408,9 @@ impl<K, V> NodeBranch<K, V> {
     where
         K: Ord,
     {
-        // https://en.wikipedia.org/wiki/B-tree#Definition
-        assert!(
-            self.children.len() <= M,
-            "1. Every node has at most m children."
-        );
-        let is_root = depth == 0;
-        let is_leaf = false;
-        assert!(
-            is_root || is_leaf || self.children.len() >= M.div_ceil(2),
-            "2. Every node, except for the root and the leaves, has at least ⌈m/2⌉ children."
-        );
-        assert!(
-            !is_root || self.children.len() >= 2,
-            "3. The root node has at least two children unless it is a leaf."
-        );
-        let leaf_count = self.children.iter().filter(|child| child.is_leaf()).count();
-        assert!(
-            leaf_count == 0 || leaf_count == self.children.len(),
-            "4. All leaves appear on the same level."
-        );
-        assert!(
-            self.children.len() - 1 == self.keys.len(),
-            "5. A non-leaf node with k children contains k−1 keys."
-        );
+        assert_eq!(self.keys.len() + 1, self.children.len());
+        assert!(!self.is_overflowing());
+        // TODO: Assert all leaves are at the same depth.
         // TODO: Assert ordering is correct (e.g. keys to the left are less than). Could pass child
         // bounds and have it check itself.
         for child in &self.children {
@@ -445,8 +421,8 @@ impl<K, V> NodeBranch<K, V> {
 
 #[derive(Clone, Debug)]
 struct NodeLeaf<K, V> {
-    keys: ArrayVec<K, { M + 1 }>,
-    values: ArrayVec<V, { M + 1 }>,
+    keys: ArrayVec<K, { (2 * D) + 1 }>,
+    values: ArrayVec<V, { (2 * D) + 1 }>,
 }
 
 impl<K, V> NodeLeaf<K, V> {
@@ -472,8 +448,8 @@ impl<K, V> NodeLeaf<K, V> {
         K: Clone,
     {
         assert!(self.is_overflowing(), "Only overflowing leaves are split");
-        let self_len = (M + 1) / 2;
-        let sibling_len = (M + 1).div_ceil(2);
+        let self_len = D;
+        let sibling_len = D + 1;
         let mut sibling = Self {
             keys: self.keys.drain(self_len..).collect(),
             values: self.values.drain(self_len..).collect(),
@@ -552,7 +528,7 @@ impl<K, V> NodeLeaf<K, V> {
     }
 
     fn is_full(&self) -> bool {
-        self.keys.len() == M
+        self.keys.len() + 1 == self.keys.capacity()
     }
 
     fn is_overflowing(&self) -> bool {
@@ -564,7 +540,7 @@ impl<K, V> NodeLeaf<K, V> {
         K: Ord,
     {
         assert!(self.keys.len() == self.values.len(), "All keys have values");
-        assert!(self.keys.len() <= M, "Not overflowing");
+        assert!(!self.is_overflowing(), "Not overflowing");
         assert!(self.keys.is_sorted(), "Keys are sorted");
     }
 }
@@ -593,17 +569,6 @@ mod tests {
         for i in 0..1000u16 {
             assert_eq!(map.get(&i), Some(&i));
         }
-    }
-
-    #[test]
-    fn len_after_split() {
-        // NOTE: `div_floor` is unstable, so we use `/` which does the same thing.
-        let m = 4usize;
-        assert_eq!((m + 1).div_ceil(2), 3);
-        assert_eq!((m + 1) / 2, 2);
-        let m = 5usize;
-        assert_eq!((m + 1).div_ceil(2), 3);
-        assert_eq!((m + 1) / 2, 3);
     }
 
     #[test]

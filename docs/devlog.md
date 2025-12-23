@@ -6,6 +6,12 @@ _Actually_ I think I was _right_ about needing to overflow for insert! I'm
 getting very vague and mixed messages from the resources online. Working it out
 manually on a whiteboard was much more enlightening.
 
+I'm going to use UC Berkeley's CS186 ("Introduction to Database Systems") as my
+source of truth moving forward:
+
+- Website: <https://cs186berkeley.net/notes/note4/>
+- YouTube videos: <https://www.youtube.com/playlist?list=PLYp4IGUhNFmw8USiYMJvCUjZe79fvyYge>
+
 ## 2025-12-21
 
 Actually I was wrong about needing to overflow for insert! I didn't read the
