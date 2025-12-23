@@ -348,7 +348,7 @@ impl<K, V> NodeBranch<K, V> {
         match child.insert(key, value) {
             NodeInsertResult::Split(key, child) => {
                 self.keys.insert(index, key);
-                self.children.insert(index, Arc::new(child));
+                self.children.insert(index + 1, Arc::new(child));
                 if self.is_overflowing() {
                     let (parent_key, sibling) = self.split();
                     NodeInsertResult::Split(parent_key, Node::Branch(sibling))
