@@ -12,6 +12,21 @@ source of truth moving forward:
 - Website: <https://cs186berkeley.net/notes/note4/>
 - YouTube videos: <https://www.youtube.com/playlist?list=PLYp4IGUhNFmw8USiYMJvCUjZe79fvyYge>
 
+I've finally finished the initial in-memory `BTreeMap` implementation! That took
+me longer than expected. Working through the algorithms by hand, and finding a
+good reference and sticking to it, ended up being a good move. Before that I was
+kind of flailing around with lots of lower quality, conflicting sources. Was
+amusing and relieving to see CS186 agree with the "deletion without rebalancing"
+paper. Delete went from being the scariest part I was fearing to a completely
+trivial final step!
+
+Now I need to choose what to work on next. I want to move from in-memory to
+on-disk sooner rather than later. I'm not sure what the best path is. Perhaps I
+start by changing the in-memory pointers to logical pointers (i.e. ID numbers).
+That way I can start to play with the notion of looking up pages in storage
+without actually touching disk or moving from arbitrary Rust types to bytes. I
+will defer to tomorrow Evan; it's getting late.
+
 ## 2025-12-21
 
 Actually I was wrong about needing to overflow for insert! I didn't read the
