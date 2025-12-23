@@ -1,5 +1,11 @@
 # Development log
 
+## 2025-12-22
+
+_Actually_ I think I was _right_ about needing to overflow for insert! I'm
+getting very vague and mixed messages from the resources online. Working it out
+manually on a whiteboard was much more enlightening.
+
 ## 2025-12-21
 
 Actually I was wrong about needing to overflow for insert! I didn't read the

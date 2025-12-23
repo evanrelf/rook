@@ -309,8 +309,8 @@ enum NodeInsertResult<K, V> {
 
 #[derive(Clone)]
 struct NodeBranch<K, V> {
-    keys: ArrayVec<K, { M - 1 }>,
-    children: ArrayVec<Arc<Node<K, V>>, M>,
+    keys: ArrayVec<K, M>,
+    children: ArrayVec<Arc<Node<K, V>>, { M + 1 }>,
 }
 
 impl<K, V> NodeBranch<K, V> {
@@ -324,6 +324,23 @@ impl<K, V> NodeBranch<K, V> {
             .unwrap_or(self.keys.len() - 1)
     }
 
+    fn split(&mut self) -> (K, Self)
+    where
+        K: Clone,
+    {
+        assert!(self.is_overflowing(), "Only overflowing branches are split");
+        let self_len = M / 2;
+        let sibling_len = M.div_ceil(2);
+        let mut sibling = Self {
+            keys: self.keys.drain(self_len..).collect(),
+            children: self.children.drain(self_len..).collect(),
+        };
+        let parent_key = sibling.keys[0].clone();
+        assert_eq!(self.keys.len(), self_len);
+        assert_eq!(sibling.keys.len(), sibling_len);
+        (parent_key, sibling)
+    }
+
     fn insert(&mut self, key: K, value: V) -> NodeInsertResult<K, V>
     where
         K: Clone + Ord,
@@ -333,7 +350,14 @@ impl<K, V> NodeBranch<K, V> {
         let child = Arc::make_mut(&mut self.children[index]);
         match child.insert(key, value) {
             NodeInsertResult::Split(key, child) => {
-                todo!()
+                self.keys.insert(index, key);
+                self.children.insert(index, Arc::new(child));
+                if self.is_overflowing() {
+                    let (parent_key, sibling) = self.split();
+                    NodeInsertResult::Split(parent_key, Node::Branch(sibling))
+                } else {
+                    NodeInsertResult::Inserted
+                }
             }
             no_split => no_split,
         }
@@ -376,6 +400,10 @@ impl<K, V> NodeBranch<K, V> {
     }
 
     fn is_full(&self) -> bool {
+        self.keys.len() == M - 1
+    }
+
+    fn is_overflowing(&self) -> bool {
         self.keys.is_full()
     }
 
@@ -417,8 +445,8 @@ impl<K, V> NodeBranch<K, V> {
 
 #[derive(Clone)]
 struct NodeLeaf<K, V> {
-    keys: ArrayVec<K, M>,
-    values: ArrayVec<V, M>,
+    keys: ArrayVec<K, { M + 1 }>,
+    values: ArrayVec<V, { M + 1 }>,
 }
 
 impl<K, V> NodeLeaf<K, V> {
@@ -439,6 +467,23 @@ impl<K, V> NodeLeaf<K, V> {
         }
     }
 
+    fn split(&mut self) -> (K, Self)
+    where
+        K: Clone,
+    {
+        assert!(self.is_overflowing(), "Only overflowing leaves are split");
+        let self_len = (M + 1) / 2;
+        let sibling_len = (M + 1).div_ceil(2);
+        let mut sibling = Self {
+            keys: self.keys.drain(self_len..).collect(),
+            values: self.values.drain(self_len..).collect(),
+        };
+        let parent_key = sibling.keys[0].clone();
+        assert_eq!(self.keys.len(), self_len);
+        assert_eq!(sibling.keys.len(), sibling_len);
+        (parent_key, sibling)
+    }
+
     fn insert(&mut self, key: K, value: V) -> NodeInsertResult<K, V>
     where
         K: Clone + Ord,
@@ -449,26 +494,14 @@ impl<K, V> NodeLeaf<K, V> {
                 NodeInsertResult::Replaced(previous_value)
             }
             LeafSearchResult::Missing(index) => {
-                if !self.is_full() {
-                    self.keys.insert(index, key);
-                    self.values.insert(index, value);
-                    return NodeInsertResult::Inserted;
-                }
-
-                let self_len = (M + 1).div_ceil(2);
-                let sibling_len = (M + 1) / 2;
-                let mut sibling = Self {
-                    keys: self.keys.drain(self_len..).collect(),
-                    values: self.values.drain(self_len..).collect(),
-                };
-                assert!(matches!(
-                    sibling.insert(key, value),
+                self.keys.insert(index, key);
+                self.values.insert(index, value);
+                if self.is_overflowing() {
+                    let (parent_key, sibling) = self.split();
+                    NodeInsertResult::Split(parent_key, Node::Leaf(sibling))
+                } else {
                     NodeInsertResult::Inserted
-                ));
-                let parent_key = sibling.keys[0].clone();
-                assert_eq!(self.keys.len(), self_len);
-                assert_eq!(sibling.keys.len(), sibling_len);
-                NodeInsertResult::Split(parent_key, Node::Leaf(sibling))
+                }
             }
         }
     }
@@ -519,6 +552,10 @@ impl<K, V> NodeLeaf<K, V> {
     }
 
     fn is_full(&self) -> bool {
+        self.keys.len() == M
+    }
+
+    fn is_overflowing(&self) -> bool {
         self.keys.is_full()
     }
 
@@ -600,13 +637,13 @@ mod tests {
             panic!();
         };
 
-        assert_eq!(leaf1.keys.as_slice(), &[1, 2, 3]);
-        assert_eq!(leaf1.values.as_slice(), &[11, 22, 33]);
+        assert_eq!(leaf1.keys.as_slice(), &[1, 2]);
+        assert_eq!(leaf1.values.as_slice(), &[11, 22]);
 
-        assert_eq!(parent_key, 4);
+        assert_eq!(parent_key, 3);
 
-        assert_eq!(leaf2.keys.as_slice(), &[4, 5]);
-        assert_eq!(leaf2.values.as_slice(), &[44, 55]);
+        assert_eq!(leaf2.keys.as_slice(), &[3, 4, 5]);
+        assert_eq!(leaf2.values.as_slice(), &[33, 44, 55]);
     }
 
     #[test]
