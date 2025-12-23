@@ -572,15 +572,25 @@ enum LeafSearchResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::num::NonZeroUsize;
+
+    fn xorshift(mut x: u32) -> u32 {
+        assert!(x != 0);
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        x
+    }
 
     #[test]
     fn big_insert() {
         let mut map = BTreeMap::new();
-        for i in 0..1000u16 {
-            map.insert(i, i);
+        let count: u32 = 1000;
+        for x in (1..=count).map(xorshift) {
+            map.insert(x, x);
         }
-        for i in 0..1000u16 {
-            assert_eq!(map.get(&i), Some(&i));
+        for x in (1..=count).map(xorshift) {
+            assert_eq!(map.get(&x), Some(&x));
         }
     }
 
