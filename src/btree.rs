@@ -326,16 +326,15 @@ impl<K, V> NodeBranch<K, V> {
         K: Clone,
     {
         assert!(self.is_overflowing(), "Only overflowing branches are split");
-        let self_len = D;
-        let sibling_len = D + 1;
         let mut sibling = Self {
-            keys: self.keys.drain(self_len..).collect(),
-            children: self.children.drain(self_len..).collect(),
+            keys: self.keys.drain(D..).collect(),
+            children: self.children.drain(D + 1..).collect(),
         };
-        assert_eq!(self.keys.len(), self_len);
-        assert_eq!(sibling.keys.len(), sibling_len);
         let parent_key = sibling.keys.remove(0);
-        assert_eq!(sibling.keys.len(), sibling_len - 1);
+        assert_eq!(self.keys.len(), D);
+        assert_eq!(self.children.len(), D + 1);
+        assert_eq!(sibling.keys.len(), D);
+        assert_eq!(sibling.children.len(), D + 1);
         (parent_key, sibling)
     }
 
