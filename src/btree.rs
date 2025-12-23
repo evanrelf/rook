@@ -5,7 +5,7 @@ use arrayvec::ArrayVec;
 use std::{iter, mem, sync::Arc};
 
 /// Ordered map based on an in-memory copy-on-write B+ tree
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BTreeMap<K, V> {
     root: Arc<Node<K, V>>,
 }
@@ -168,7 +168,7 @@ const H_MAX: usize = 38;
 const _: () = assert!(M >= 4, "`H_MAX` assumes branching factor >= 4");
 
 #[cfg_attr(not(test), expect(clippy::large_enum_variant))]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum Node<K, V> {
     Branch(NodeBranch<K, V>),
     Leaf(NodeLeaf<K, V>),
@@ -307,7 +307,7 @@ enum NodeInsertResult<K, V> {
     Split(K, Node<K, V>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct NodeBranch<K, V> {
     keys: ArrayVec<K, M>,
     children: ArrayVec<Arc<Node<K, V>>, { M + 1 }>,
@@ -443,7 +443,7 @@ impl<K, V> NodeBranch<K, V> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct NodeLeaf<K, V> {
     keys: ArrayVec<K, { M + 1 }>,
     values: ArrayVec<V, { M + 1 }>,
