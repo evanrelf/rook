@@ -47,7 +47,7 @@ impl<K, V> BTreeMap<K, V> {
                 assert!(child_left_max < child_right_min, "Left child < right child");
                 assert!(*child_left_max < parent_key, "Left child max < parent key");
                 assert!(
-                    *child_right_min == parent_key,
+                    child_right.is_branch() || *child_right_min == parent_key,
                     "Right child min == parent key"
                 );
 
@@ -332,9 +332,10 @@ impl<K, V> NodeBranch<K, V> {
             keys: self.keys.drain(self_len..).collect(),
             children: self.children.drain(self_len..).collect(),
         };
-        let parent_key = sibling.keys[0].clone();
         assert_eq!(self.keys.len(), self_len);
         assert_eq!(sibling.keys.len(), sibling_len);
+        let parent_key = sibling.keys.remove(0);
+        assert_eq!(sibling.keys.len(), sibling_len - 1);
         (parent_key, sibling)
     }
 
