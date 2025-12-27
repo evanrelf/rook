@@ -5,6 +5,7 @@ use std::{mem, sync::Arc};
 #[derive(Clone, Debug)]
 pub struct BTreeMap<K, V> {
     root: Arc<Node<K, V>>,
+    length: usize,
 }
 
 impl<K, V> BTreeMap<K, V> {
@@ -15,6 +16,7 @@ impl<K, V> BTreeMap<K, V> {
                 keys: ArrayVec::new(),
                 values: ArrayVec::new(),
             })),
+            length: 0,
         }
     }
 
@@ -27,7 +29,10 @@ impl<K, V> BTreeMap<K, V> {
         let root = Arc::make_mut(&mut self.root);
         match root.insert(key, value) {
             NodeInsertResult::Replaced(previous_value) => Some(previous_value),
-            NodeInsertResult::Inserted => None,
+            NodeInsertResult::Inserted => {
+                self.length += 1;
+                None
+            }
             // Branch and leaf nodes implement insert-with-split by returning their sibling and the
             // key they'd like inserted in their parent. Only the root node is capable of creating
             // itself a new parent.
@@ -58,6 +63,7 @@ impl<K, V> BTreeMap<K, V> {
                 parent.children.push(Arc::new(child_left));
                 parent.children.push(Arc::new(child_right));
 
+                self.length += 1;
                 None
             }
         }
@@ -74,7 +80,13 @@ impl<K, V> BTreeMap<K, V> {
         K: Clone + Ord,
         V: Clone,
     {
-        Arc::make_mut(&mut self.root).remove(key)
+        let root = Arc::make_mut(&mut self.root);
+        if let Some(value) = root.remove(key) {
+            self.length -= 1;
+            Some(value)
+        } else {
+            None
+        }
     }
 
     /// Get a shared reference to the value associated with the given key
@@ -91,7 +103,8 @@ impl<K, V> BTreeMap<K, V> {
         K: Clone + Ord,
         V: Clone,
     {
-        Arc::make_mut(&mut self.root).get_mut(key)
+        let root = Arc::make_mut(&mut self.root);
+        root.get_mut(key)
     }
 
     /// Check whether the key is present in the map
@@ -102,9 +115,14 @@ impl<K, V> BTreeMap<K, V> {
         self.root.contains_key(key)
     }
 
+    /// Return the number of entries in the map
+    pub fn len(&self) -> usize {
+        self.length
+    }
+
     /// Check whether the map has any entries
     pub fn is_empty(&self) -> bool {
-        self.root.is_empty()
+        self.len() == 0
     }
 
     #[expect(dead_code)]
@@ -221,13 +239,6 @@ impl<K, V> Node<K, V> {
         match self {
             Node::Branch(branch) => branch.keys.as_slice(),
             Node::Leaf(leaf) => leaf.keys.as_slice(),
-        }
-    }
-
-    fn is_empty(&self) -> bool {
-        match self {
-            Node::Branch(branch) => branch.is_empty(),
-            Node::Leaf(leaf) => leaf.is_empty(),
         }
     }
 
@@ -356,10 +367,6 @@ impl<K, V> NodeBranch<K, V> {
         let index = self.search(key);
         let child = &self.children[index];
         child.contains_key(key)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.children.iter().all(|child| child.is_empty())
     }
 
     #[expect(dead_code)]
@@ -493,10 +500,6 @@ impl<K, V> NodeLeaf<K, V> {
         matches!(self.search(key), LeafSearchResult::Found(_))
     }
 
-    fn is_empty(&self) -> bool {
-        self.keys.is_empty()
-    }
-
     #[expect(dead_code)]
     fn is_full(&self) -> bool {
         self.keys.len() + 1 == self.keys.capacity()
@@ -543,6 +546,7 @@ mod tests {
         for x in (1..=count).map(xorshift) {
             map.insert(x, x);
         }
+        assert_eq!(map.len(), 1000);
         for x in (1..=count).map(xorshift) {
             assert_eq!(map.remove(&x), Some(x));
         }
@@ -583,5 +587,6 @@ mod tests {
         assert!(tree.root.is_leaf());
         assert!(tree.insert(5, 55).is_none());
         assert!(tree.root.is_branch());
+        assert_eq!(tree.len(), 5);
     }
 }
