@@ -578,15 +578,15 @@ mod tests {
     }
 
     #[test]
-    fn tree_leaf_split() {
-        let mut tree = BTreeMap::new();
-        assert!(tree.insert(1, 11).is_none());
-        assert!(tree.insert(2, 22).is_none());
-        assert!(tree.insert(3, 33).is_none());
-        assert!(tree.insert(4, 44).is_none());
-        assert!(tree.root.is_leaf());
-        assert!(tree.insert(5, 55).is_none());
-        assert!(tree.root.is_branch());
-        assert_eq!(tree.len(), 5);
+    fn leaf_to_branch() {
+        let mut map = BTreeMap::new();
+        assert!(map.insert(1, 11).is_none());
+        assert!(map.insert(2, 22).is_none());
+        assert!(map.insert(3, 33).is_none());
+        assert!(map.insert(4, 44).is_none());
+        assert!(map.root.is_leaf());
+        assert!(map.insert(5, 55).is_none());
+        assert!(map.root.is_branch());
+        assert_eq!(map.len(), 5);
     }
 }
