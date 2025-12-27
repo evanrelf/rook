@@ -1,5 +1,38 @@
 # Development log
 
+## 2025-12-26
+
+Taking a break from working on this during the holidays, but I've still been
+thinking about it and reading up on different data structures and databases and
+stuff...
+
+- [LSM tree](https://en.wikipedia.org/wiki/Log-structured_merge-tree)
+
+  Seems oriented towards write performance above all else. Reads sound worse
+  than B-trees so I'm not interested in this for my project. TigerBeetle uses
+  a forest of LSM trees.
+
+- [Bε-tree](https://www.usenix.org/system/files/login/articles/login_oct15_05_bender.pdf)
+
+  Takes a B+ tree and adds buffers to internal nodes for messages (e.g. insert,
+  delete, update). Improves write performance (appending to buffer is O(1)),
+  reduces write amplification (fewer nodes touched for mutations), etc.
+
+  The reduced write amplification interests me most because that makes a
+  copy-on-write version more efficient. Fewer nodes touched for mutations means
+  fewer nodes copied. I think I will convert my existing B+ tree into a Bε-tree.
+  Later if I want a regular B+ tree, I can just set ε to 1 and the buffers go
+  away.
+
+  Same as [fractal tree](https://en.wikipedia.org/wiki/Fractal_tree_index) I
+  think? If so, [hitchhiker tree](https://www.youtube.com/watch?v=jdn617M3-P4)
+  builds on this to make a persistent data structure.
+
+- [STBε-tree](https://www.usenix.org/system/files/atc20-conway.pdf)
+
+  This seems like a cool improvement over the Bε-tree, but the added complexity
+  is overkill for my project.
+
 ## 2025-12-22
 
 _Actually_ I think I was _right_ about needing to overflow for insert! I'm
