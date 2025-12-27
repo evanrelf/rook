@@ -33,6 +33,11 @@ stuff...
   This seems like a cool improvement over the Bε-tree, but the added complexity
   is overkill for my project.
 
+Ultimately I think the B+ tree is fine for now. I need to follow the "make it
+work, make it right, make it fast" philosophy and move on to moving the tree
+from memory to disk. I can come back later and make it fast(er) with the
+Bε-tree.
+
 ## 2025-12-22
 
 _Actually_ I think I was _right_ about needing to overflow for insert! I'm
