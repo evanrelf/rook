@@ -286,6 +286,7 @@ impl<K, V> NodeBranch<K, V> {
     where
         K: Ord,
     {
+        // TODO: Go back to binary search; it's better once the nodes get larger (e.g. >=4 KiB).
         self.keys
             .iter()
             .position(|k| k > key)
