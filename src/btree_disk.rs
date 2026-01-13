@@ -43,6 +43,19 @@ impl PageChecksum {
 #[repr(transparent)]
 pub struct UberPageGeneration(pub u64);
 
+pub const UBER_PAGE_COUNT: usize = 2;
+
+const _: () = assert!(
+    UBER_PAGE_COUNT >= 2,
+    "Must have at least 2 uber pages for atomic writes"
+);
+
+pub const UBER_PAGE_STRIDE: usize = PAGE_SIZE * 2;
+
+const _: () = assert!(UBER_PAGE_STRIDE >= PAGE_SIZE && UBER_PAGE_STRIDE.is_multiple_of(PAGE_SIZE));
+
+pub const UBER_PAGE_GAP: usize = UBER_PAGE_STRIDE - PAGE_SIZE;
+
 #[derive(Clone, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
 #[repr(C)]
 pub struct UberPage {
@@ -207,11 +220,34 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Self {
-        let bytes = Vec::new();
-        Self { bytes }
+        let mut db = Self { bytes: Vec::new() };
+
+        // Create uber pages
+        let uber_page = PageRef::Uber(&UberPage::default());
+        let mut uber_page_pointers = Vec::with_capacity(UBER_PAGE_COUNT);
+        uber_page_pointers.push(db.push_page(&uber_page));
+        for _ in 1..UBER_PAGE_COUNT {
+            db.bytes.resize(db.bytes.len() + UBER_PAGE_GAP, 0);
+            uber_page_pointers.push(db.push_page(&uber_page));
+        }
+
+        // Create root leaf page
+        let leaf_page = PageRef::BTreeLeaf(&BTreeLeafPage::default());
+        let leaf_page_pointer = db.push_page(&leaf_page);
+
+        // Update all(?) uber pages to point to leaf page
+        for uber_page_pointer in &uber_page_pointers {
+            let PageMut::Uber(uber_page) = db.get_page_mut(uber_page_pointer) else {
+                unreachable!()
+            };
+            uber_page.root = leaf_page_pointer.clone();
+            uber_page.generation.0 += 1;
+        }
+
+        db
     }
 
-    pub fn push_page<'a>(&mut self, page: PageRef<'a>) -> PagePointer {
+    pub fn push_page<'a>(&mut self, page: &PageRef<'a>) -> PagePointer {
         let page_index = self.bytes.len() / PAGE_SIZE;
         let pointer = PagePointer(u32::try_from(page_index).unwrap());
         self.bytes.resize(self.bytes.len() + PAGE_SIZE, 0);
@@ -284,14 +320,8 @@ mod tests {
 
     #[test]
     fn test() {
-        let mut db = Database::new();
-        let uber_page_pointer = db.push_page(PageRef::Uber(&UberPage::default()));
-        let leaf_page_pointer = db.push_page(PageRef::BTreeLeaf(&BTreeLeafPage::default()));
-        if let PageMut::Uber(uber_page) = db.get_page_mut(&uber_page_pointer) {
-            uber_page.root = leaf_page_pointer;
-        } else {
-            unreachable!()
-        };
+        let db = Database::new();
+        let uber_page_pointer = PagePointer(0);
         if let PageRef::Uber(uber_page) = db.get_page(&uber_page_pointer) {
             if let PageRef::BTreeLeaf(_leaf_page) = db.get_page(&uber_page.root) {
                 // nice
