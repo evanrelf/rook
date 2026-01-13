@@ -4,5 +4,6 @@ edition = "2024"
 
 [dependencies]
 arrayvec = "0.7.6"
+blake3 = "1.8.3"
 memmap2 = "0.9.9"
 zerocopy = { version = "0.8.33", features = ["derive", "simd", "std"] }

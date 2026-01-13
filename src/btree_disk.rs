@@ -232,8 +232,10 @@ impl Database {
         }
 
         // Create root leaf page
-        let leaf_page = PageRef::BTreeLeaf(&BTreeLeafPage::default());
-        let leaf_page_pointer = db.push_page(&leaf_page);
+        let leaf_page = BTreeLeafPage::default();
+        let leaf_page_ref = PageRef::BTreeLeaf(&leaf_page);
+        let leaf_page_pointer = db.push_page(&leaf_page_ref);
+        let leaf_page_checksum = PageChecksum(*blake3::hash(leaf_page.as_bytes()).as_bytes());
 
         // Update all(?) uber pages to point to leaf page
         for uber_page_pointer in &uber_page_pointers {
@@ -241,6 +243,7 @@ impl Database {
                 unreachable!()
             };
             uber_page.root = leaf_page_pointer.clone();
+            uber_page.checksum = leaf_page_checksum.clone();
             uber_page.generation.0 += 1;
         }
 
