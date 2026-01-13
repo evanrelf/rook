@@ -39,14 +39,19 @@ impl PageChecksum {
     pub const NULL: Self = Self([0; _]);
 }
 
+#[derive(Clone, Default, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
+#[repr(transparent)]
+pub struct UberPageGeneration(pub u64);
+
 #[derive(Clone, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
 #[repr(C)]
 pub struct UberPage {
     pub magic: [u8; 16],
+    pub generation: UberPageGeneration,
     pub root: PagePointer,
     pub checksum: PageChecksum,
     pub page_size: u16,
-    pub _padding: [u8; 4041],
+    pub _padding: [u8; 4033],
     pub kind: PageKind,
 }
 
@@ -54,7 +59,10 @@ const _: () = {
     const MAGIC_OFFSET: usize = 0;
     const_assert_eq!(offset_of!(UberPage, magic), MAGIC_OFFSET);
 
-    const ROOT_OFFSET: usize = MAGIC_OFFSET + size_of::<[u8; 16]>();
+    const GENERATION_OFFSET: usize = MAGIC_OFFSET + size_of::<[u8; 16]>();
+    const_assert_eq!(offset_of!(UberPage, generation), GENERATION_OFFSET);
+
+    const ROOT_OFFSET: usize = GENERATION_OFFSET + size_of::<UberPageGeneration>();
     const_assert_eq!(offset_of!(UberPage, root), ROOT_OFFSET);
 
     const CHECKSUM_OFFSET: usize = ROOT_OFFSET + size_of::<PagePointer>();
@@ -82,6 +90,7 @@ impl Default for UberPage {
     fn default() -> Self {
         Self {
             magic: Self::MAGIC,
+            generation: UberPageGeneration::default(),
             page_size: Self::PAGE_SIZE,
             root: PagePointer::NULL,
             checksum: PageChecksum::NULL,
