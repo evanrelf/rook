@@ -140,19 +140,29 @@ impl Default for BTreeBranchPage {
     }
 }
 
+const LEAF_CAPACITY: usize = 31;
+
 #[derive(Clone, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
 #[repr(C)]
 pub struct BTreeLeafPage {
-    pub keys_len: u16,
-    pub _padding: [u8; 4093],
+    pub keys: [[u8; 64]; LEAF_CAPACITY],
+    pub values: [[u8; 64]; LEAF_CAPACITY],
+    pub length: u16,
+    pub _padding: [u8; 125],
     pub kind: PageKind,
 }
 
 const _: () = {
-    const KEYS_LEN_OFFSET: usize = 0;
-    const_assert_eq!(mem::offset_of!(BTreeLeafPage, keys_len), KEYS_LEN_OFFSET);
+    const KEYS_OFFSET: usize = 0;
+    const_assert_eq!(mem::offset_of!(BTreeLeafPage, keys), KEYS_OFFSET);
 
-    const PADDING_OFFSET: usize = KEYS_LEN_OFFSET + mem::size_of::<u16>();
+    const VALUES_OFFSET: usize = KEYS_OFFSET + mem::size_of::<[[u8; 64]; LEAF_CAPACITY]>();
+    const_assert_eq!(mem::offset_of!(BTreeLeafPage, values), VALUES_OFFSET);
+
+    const LENGTH_OFFSET: usize = VALUES_OFFSET + mem::size_of::<[[u8; 64]; LEAF_CAPACITY]>();
+    const_assert_eq!(mem::offset_of!(BTreeLeafPage, length), LENGTH_OFFSET);
+
+    const PADDING_OFFSET: usize = LENGTH_OFFSET + mem::size_of::<u16>();
     const_assert_eq!(mem::offset_of!(BTreeLeafPage, _padding), PADDING_OFFSET);
 
     const KIND_OFFSET: usize = PAGE_SIZE - mem::size_of::<PageKind>();
@@ -168,7 +178,9 @@ impl BTreeLeafPage {
 impl Default for BTreeLeafPage {
     fn default() -> Self {
         Self {
-            keys_len: 0,
+            keys: [[0; _]; _],
+            values: [[0; _]; _],
+            length: 0,
             _padding: [0; _],
             kind: Self::KIND,
         }
