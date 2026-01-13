@@ -1,4 +1,4 @@
-use std::mem;
+use std::mem::{offset_of, size_of};
 use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes};
 
 macro_rules! const_assert_eq {
@@ -22,7 +22,7 @@ pub enum PageKind {
 #[repr(transparent)]
 pub struct PagePointer(pub u32);
 
-const_assert_eq!(mem::size_of::<PagePointer>(), 4);
+const_assert_eq!(size_of::<PagePointer>(), 4);
 
 impl PagePointer {
     pub const NULL: Self = Self(0);
@@ -48,21 +48,21 @@ pub struct UberPage {
 
 const _: () = {
     const MAGIC_OFFSET: usize = 0;
-    const_assert_eq!(mem::offset_of!(UberPage, magic), MAGIC_OFFSET);
+    const_assert_eq!(offset_of!(UberPage, magic), MAGIC_OFFSET);
 
-    const ROOT_OFFSET: usize = MAGIC_OFFSET + mem::size_of::<[u8; 16]>();
-    const_assert_eq!(mem::offset_of!(UberPage, root), ROOT_OFFSET);
+    const ROOT_OFFSET: usize = MAGIC_OFFSET + size_of::<[u8; 16]>();
+    const_assert_eq!(offset_of!(UberPage, root), ROOT_OFFSET);
 
-    const PAGE_SIZE_OFFSET: usize = ROOT_OFFSET + mem::size_of::<PagePointer>();
-    const_assert_eq!(mem::offset_of!(UberPage, page_size), PAGE_SIZE_OFFSET);
+    const PAGE_SIZE_OFFSET: usize = ROOT_OFFSET + size_of::<PagePointer>();
+    const_assert_eq!(offset_of!(UberPage, page_size), PAGE_SIZE_OFFSET);
 
-    const PADDING_OFFSET: usize = PAGE_SIZE_OFFSET + mem::size_of::<u16>();
-    const_assert_eq!(mem::offset_of!(UberPage, _padding), PADDING_OFFSET);
+    const PADDING_OFFSET: usize = PAGE_SIZE_OFFSET + size_of::<u16>();
+    const_assert_eq!(offset_of!(UberPage, _padding), PADDING_OFFSET);
 
-    const KIND_OFFSET: usize = PAGE_SIZE - mem::size_of::<PageKind>();
-    const_assert_eq!(mem::offset_of!(UberPage, kind), KIND_OFFSET);
+    const KIND_OFFSET: usize = PAGE_SIZE - size_of::<PageKind>();
+    const_assert_eq!(offset_of!(UberPage, kind), KIND_OFFSET);
 
-    const_assert_eq!(mem::size_of::<UberPage>(), PAGE_SIZE);
+    const_assert_eq!(size_of::<UberPage>(), PAGE_SIZE);
 };
 
 impl UberPage {
@@ -98,29 +98,26 @@ pub struct BTreeBranchPage {
 
 const _: () = {
     const KEYS_OFFSET: usize = 0;
-    const_assert_eq!(mem::offset_of!(BTreeBranchPage, keys), KEYS_OFFSET);
+    const_assert_eq!(offset_of!(BTreeBranchPage, keys), KEYS_OFFSET);
 
-    const CHILDREN_OFFSET: usize = KEYS_OFFSET + mem::size_of::<[[u8; 64]; BRANCH_CAPACITY]>();
-    const_assert_eq!(mem::offset_of!(BTreeBranchPage, children), CHILDREN_OFFSET);
+    const CHILDREN_OFFSET: usize = KEYS_OFFSET + size_of::<[[u8; 64]; BRANCH_CAPACITY]>();
+    const_assert_eq!(offset_of!(BTreeBranchPage, children), CHILDREN_OFFSET);
 
     const CHECKSUMS_OFFSET: usize =
-        CHILDREN_OFFSET + mem::size_of::<[PagePointer; BRANCH_CAPACITY + 1]>();
-    const_assert_eq!(
-        mem::offset_of!(BTreeBranchPage, checksums),
-        CHECKSUMS_OFFSET
-    );
+        CHILDREN_OFFSET + size_of::<[PagePointer; BRANCH_CAPACITY + 1]>();
+    const_assert_eq!(offset_of!(BTreeBranchPage, checksums), CHECKSUMS_OFFSET);
 
     const KEYS_LEN_OFFSET: usize =
-        CHECKSUMS_OFFSET + mem::size_of::<[PageChecksum; BRANCH_CAPACITY + 1]>();
-    const_assert_eq!(mem::offset_of!(BTreeBranchPage, keys_len), KEYS_LEN_OFFSET);
+        CHECKSUMS_OFFSET + size_of::<[PageChecksum; BRANCH_CAPACITY + 1]>();
+    const_assert_eq!(offset_of!(BTreeBranchPage, keys_len), KEYS_LEN_OFFSET);
 
-    const PADDING_OFFSET: usize = KEYS_LEN_OFFSET + mem::size_of::<u16>();
-    const_assert_eq!(mem::offset_of!(BTreeBranchPage, _padding), PADDING_OFFSET);
+    const PADDING_OFFSET: usize = KEYS_LEN_OFFSET + size_of::<u16>();
+    const_assert_eq!(offset_of!(BTreeBranchPage, _padding), PADDING_OFFSET);
 
-    const KIND_OFFSET: usize = PAGE_SIZE - mem::size_of::<PageKind>();
-    const_assert_eq!(mem::offset_of!(BTreeBranchPage, kind), KIND_OFFSET);
+    const KIND_OFFSET: usize = PAGE_SIZE - size_of::<PageKind>();
+    const_assert_eq!(offset_of!(BTreeBranchPage, kind), KIND_OFFSET);
 
-    const_assert_eq!(mem::size_of::<BTreeBranchPage>(), PAGE_SIZE);
+    const_assert_eq!(size_of::<BTreeBranchPage>(), PAGE_SIZE);
 };
 
 impl BTreeBranchPage {
@@ -154,21 +151,21 @@ pub struct BTreeLeafPage {
 
 const _: () = {
     const KEYS_OFFSET: usize = 0;
-    const_assert_eq!(mem::offset_of!(BTreeLeafPage, keys), KEYS_OFFSET);
+    const_assert_eq!(offset_of!(BTreeLeafPage, keys), KEYS_OFFSET);
 
-    const VALUES_OFFSET: usize = KEYS_OFFSET + mem::size_of::<[[u8; 64]; LEAF_CAPACITY]>();
-    const_assert_eq!(mem::offset_of!(BTreeLeafPage, values), VALUES_OFFSET);
+    const VALUES_OFFSET: usize = KEYS_OFFSET + size_of::<[[u8; 64]; LEAF_CAPACITY]>();
+    const_assert_eq!(offset_of!(BTreeLeafPage, values), VALUES_OFFSET);
 
-    const LENGTH_OFFSET: usize = VALUES_OFFSET + mem::size_of::<[[u8; 64]; LEAF_CAPACITY]>();
-    const_assert_eq!(mem::offset_of!(BTreeLeafPage, length), LENGTH_OFFSET);
+    const LENGTH_OFFSET: usize = VALUES_OFFSET + size_of::<[[u8; 64]; LEAF_CAPACITY]>();
+    const_assert_eq!(offset_of!(BTreeLeafPage, length), LENGTH_OFFSET);
 
-    const PADDING_OFFSET: usize = LENGTH_OFFSET + mem::size_of::<u16>();
-    const_assert_eq!(mem::offset_of!(BTreeLeafPage, _padding), PADDING_OFFSET);
+    const PADDING_OFFSET: usize = LENGTH_OFFSET + size_of::<u16>();
+    const_assert_eq!(offset_of!(BTreeLeafPage, _padding), PADDING_OFFSET);
 
-    const KIND_OFFSET: usize = PAGE_SIZE - mem::size_of::<PageKind>();
-    const_assert_eq!(mem::offset_of!(BTreeLeafPage, kind), KIND_OFFSET);
+    const KIND_OFFSET: usize = PAGE_SIZE - size_of::<PageKind>();
+    const_assert_eq!(offset_of!(BTreeLeafPage, kind), KIND_OFFSET);
 
-    const_assert_eq!(mem::size_of::<BTreeLeafPage>(), PAGE_SIZE);
+    const_assert_eq!(size_of::<BTreeLeafPage>(), PAGE_SIZE);
 };
 
 impl BTreeLeafPage {
