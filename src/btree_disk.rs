@@ -44,8 +44,9 @@ impl PageChecksum {
 pub struct UberPage {
     pub magic: [u8; 16],
     pub root: PagePointer,
+    pub checksum: PageChecksum,
     pub page_size: u16,
-    pub _padding: [u8; 4073],
+    pub _padding: [u8; 4041],
     pub kind: PageKind,
 }
 
@@ -56,7 +57,10 @@ const _: () = {
     const ROOT_OFFSET: usize = MAGIC_OFFSET + size_of::<[u8; 16]>();
     const_assert_eq!(offset_of!(UberPage, root), ROOT_OFFSET);
 
-    const PAGE_SIZE_OFFSET: usize = ROOT_OFFSET + size_of::<PagePointer>();
+    const CHECKSUM_OFFSET: usize = ROOT_OFFSET + size_of::<PagePointer>();
+    const_assert_eq!(offset_of!(UberPage, checksum), CHECKSUM_OFFSET);
+
+    const PAGE_SIZE_OFFSET: usize = CHECKSUM_OFFSET + size_of::<PageChecksum>();
     const_assert_eq!(offset_of!(UberPage, page_size), PAGE_SIZE_OFFSET);
 
     const PADDING_OFFSET: usize = PAGE_SIZE_OFFSET + size_of::<u16>();
@@ -80,6 +84,7 @@ impl Default for UberPage {
             magic: Self::MAGIC,
             page_size: Self::PAGE_SIZE,
             root: PagePointer::NULL,
+            checksum: PageChecksum::NULL,
             _padding: [0; _],
             kind: Self::KIND,
         }
