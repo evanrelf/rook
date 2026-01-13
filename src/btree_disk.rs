@@ -1,4 +1,7 @@
-use std::mem::{offset_of, size_of};
+use std::{
+    io::Write as _,
+    mem::{offset_of, size_of},
+};
 use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes};
 
 macro_rules! const_assert_eq {
@@ -180,6 +183,90 @@ impl Default for BTreeLeafPage {
             length: 0,
             _padding: [0; _],
             kind: Self::KIND,
+        }
+    }
+}
+
+pub enum PageRef<'a> {
+    Uber(&'a UberPage),
+    BTreeBranch(&'a BTreeBranchPage),
+    BTreeLeaf(&'a BTreeLeafPage),
+}
+
+pub fn push_page<'a>(db: &mut Vec<u8>, page: PageRef<'a>) -> PagePointer {
+    let page_index = db.len() / PAGE_SIZE;
+    let pointer = PagePointer(u32::try_from(page_index).unwrap());
+    db.resize(db.len() + PAGE_SIZE, 0);
+    let byte_offset = page_index * PAGE_SIZE;
+    let page_bytes = match page {
+        PageRef::Uber(page) => page.as_bytes(),
+        PageRef::BTreeBranch(page) => page.as_bytes(),
+        PageRef::BTreeLeaf(page) => page.as_bytes(),
+    };
+    (&mut db[byte_offset..byte_offset + PAGE_SIZE])
+        .write_all(page_bytes)
+        .unwrap();
+    pointer
+}
+
+pub fn get_page<'a>(db: &'a [u8], pointer: &PagePointer) -> PageRef<'a> {
+    let offset = usize::try_from(pointer.0).expect("usize >= 32 bits") * PAGE_SIZE;
+    let page_bytes = &db[offset..offset + PAGE_SIZE];
+    let page_kind = PageKind::try_ref_from_bytes(&page_bytes[PAGE_SIZE - 1..PAGE_SIZE]).unwrap();
+    match page_kind {
+        PageKind::Uber => PageRef::Uber(UberPage::try_ref_from_bytes(page_bytes).unwrap()),
+        PageKind::BTreeBranch => {
+            PageRef::BTreeBranch(BTreeBranchPage::try_ref_from_bytes(page_bytes).unwrap())
+        }
+        PageKind::BTreeLeaf => {
+            PageRef::BTreeLeaf(BTreeLeafPage::try_ref_from_bytes(page_bytes).unwrap())
+        }
+    }
+}
+
+pub enum PageMut<'a> {
+    Uber(&'a mut UberPage),
+    BTreeBranch(&'a mut BTreeBranchPage),
+    BTreeLeaf(&'a mut BTreeLeafPage),
+}
+
+pub fn get_page_mut<'a>(db: &'a mut [u8], pointer: &PagePointer) -> PageMut<'a> {
+    let offset = usize::try_from(pointer.0).expect("usize >= 32 bits") * PAGE_SIZE;
+    let page_bytes = &mut db[offset..offset + PAGE_SIZE];
+    let page_kind = PageKind::try_ref_from_bytes(&page_bytes[PAGE_SIZE - 1..PAGE_SIZE]).unwrap();
+    match page_kind {
+        PageKind::Uber => PageMut::Uber(UberPage::try_mut_from_bytes(page_bytes).unwrap()),
+        PageKind::BTreeBranch => {
+            PageMut::BTreeBranch(BTreeBranchPage::try_mut_from_bytes(page_bytes).unwrap())
+        }
+        PageKind::BTreeLeaf => {
+            PageMut::BTreeLeaf(BTreeLeafPage::try_mut_from_bytes(page_bytes).unwrap())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let mut db = Vec::new();
+        let uber_page_pointer = push_page(&mut db, PageRef::Uber(&UberPage::default()));
+        let leaf_page_pointer = push_page(&mut db, PageRef::BTreeLeaf(&BTreeLeafPage::default()));
+        if let PageMut::Uber(uber_page) = get_page_mut(&mut db, &uber_page_pointer) {
+            uber_page.root = leaf_page_pointer;
+        } else {
+            unreachable!()
+        };
+        if let PageRef::Uber(uber_page) = get_page(&db, &uber_page_pointer) {
+            if let PageRef::BTreeLeaf(_leaf_page) = get_page(&db, &uber_page.root) {
+                // nice
+            } else {
+                unreachable!()
+            }
+        } else {
+            unreachable!()
         }
     }
 }
