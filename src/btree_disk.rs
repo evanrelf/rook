@@ -83,16 +83,16 @@ impl Default for UberPage {
     }
 }
 
-const BRANCH_KEYS_CAPACITY: usize = 92;
+const BRANCH_CAPACITY: usize = 40;
 
 #[derive(Clone, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
 #[repr(C)]
 pub struct BTreeBranchPage {
-    pub keys: [[u8; 8]; BRANCH_KEYS_CAPACITY],
-    pub children: [PagePointer; BRANCH_KEYS_CAPACITY + 1],
-    pub checksums: [PageChecksum; BRANCH_KEYS_CAPACITY + 1],
+    pub keys: [[u8; 64]; BRANCH_CAPACITY],
+    pub children: [PagePointer; BRANCH_CAPACITY + 1],
+    pub checksums: [PageChecksum; BRANCH_CAPACITY + 1],
     pub keys_len: u16,
-    pub _padding: [u8; 9],
+    pub _padding: [u8; 57],
     pub kind: PageKind,
 }
 
@@ -100,18 +100,18 @@ const _: () = {
     const KEYS_OFFSET: usize = 0;
     const_assert_eq!(mem::offset_of!(BTreeBranchPage, keys), KEYS_OFFSET);
 
-    const CHILDREN_OFFSET: usize = KEYS_OFFSET + mem::size_of::<[[u8; 8]; BRANCH_KEYS_CAPACITY]>();
+    const CHILDREN_OFFSET: usize = KEYS_OFFSET + mem::size_of::<[[u8; 64]; BRANCH_CAPACITY]>();
     const_assert_eq!(mem::offset_of!(BTreeBranchPage, children), CHILDREN_OFFSET);
 
     const CHECKSUMS_OFFSET: usize =
-        CHILDREN_OFFSET + mem::size_of::<[PagePointer; BRANCH_KEYS_CAPACITY + 1]>();
+        CHILDREN_OFFSET + mem::size_of::<[PagePointer; BRANCH_CAPACITY + 1]>();
     const_assert_eq!(
         mem::offset_of!(BTreeBranchPage, checksums),
         CHECKSUMS_OFFSET
     );
 
     const KEYS_LEN_OFFSET: usize =
-        CHECKSUMS_OFFSET + mem::size_of::<[PageChecksum; BRANCH_KEYS_CAPACITY + 1]>();
+        CHECKSUMS_OFFSET + mem::size_of::<[PageChecksum; BRANCH_CAPACITY + 1]>();
     const_assert_eq!(mem::offset_of!(BTreeBranchPage, keys_len), KEYS_LEN_OFFSET);
 
     const PADDING_OFFSET: usize = KEYS_LEN_OFFSET + mem::size_of::<u16>();
