@@ -1,5 +1,25 @@
 # Development log
 
+## 2026-01-14
+
+Some thoughts since my last update:
+
+- I'm starting to read parts of ["Database Internals" by Alex Petrov](https://www.databass.dev/)
+  and it pointed me towards the [LMDB database](https://en.wikipedia.org/wiki/Lightning_Memory-Mapped_Database).
+  The book's description of LMDB closely matches my current design thinking for
+  Rook, and the linked [presentation slides](https://databass.dev/links/87)
+  provide even more satisfying details.
+
+- I should probably move away from the data-oriented / struct-of-arrays style
+  of storing keys and values/pointers contiguously in my b-tree pages. Instead,
+  I should follow what LMDB and Postgres do, and store a list of fixed-size
+  intra-page pointers after the page header, pointing to entries in the
+  following data section. This allows for arbitrary size entries, and helps with
+  fragmentation (allows entries to be out of order and have gaps).
+
+- I like how LMDB stores its freelist as just another b-tree, referenced by the
+  root page (in my case, the uber page).
+
 ## 2025-12-26
 
 Taking a break from working on this during the holidays, but I've still been
