@@ -1,5 +1,28 @@
 # Development log
 
+## 2026-01-15
+
+More about LMDB:
+
+- I found [this blog post](https://blog.separateconcerns.com/2016-04-03-lmdb-format.html)
+  helpful for understanding the different page types, how overflow is handled,
+  etc.
+
+- Worth calling out that writes alternate between the two root pages, at index 0
+  and 1, but naively that would mess up readers: if a read is happening starting
+  from the root at index 0, and multiple writes occur, that page would change
+  out from under the reader.
+
+  My understanding is this problem is solved in two parts:
+
+  1. The reader first makes an in-memory copy of the root page, and uses that
+     instead of the volatile on-disk version.
+
+  2. While there are readers, re-use of pages on the freelist is suspended, and
+     instead the database reverts to a less efficient but safe append-only mode.
+     That means all the pages reachable from the readers' roots are immutable
+     and will not change out from under them.
+
 ## 2026-01-14
 
 Some thoughts since my last update:
