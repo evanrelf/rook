@@ -114,7 +114,7 @@ impl Default for UberPage {
     }
 }
 
-const BRANCH_CAPACITY: usize = 40;
+const BRANCH_CAPACITY: usize = 53;
 
 #[derive(Clone, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
 #[repr(C)]
@@ -123,9 +123,7 @@ pub struct BTreeBranchPage {
     pub checksums: [PageChecksum; BRANCH_CAPACITY + 1],
     pub children: [PagePointer; BRANCH_CAPACITY + 1],
     pub keys_len: u16,
-    // TODO: Increase branch capacity, now that we have more space after switching to a smaller
-    // checksum hash.
-    pub _padding: [u8; 1041],
+    pub _padding: [u8; 53],
     pub kind: PageKind,
 }
 
