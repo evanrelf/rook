@@ -2,11 +2,12 @@ use std::{
     io::Write as _,
     mem::{offset_of, size_of},
 };
+use twox_hash::XxHash3_64;
 use zerocopy::{Immutable, IntoBytes, KnownLayout, TryFromBytes};
 
 macro_rules! const_assert_eq {
     ($x:expr, $y:expr) => {
-        const _: [(); $x] = [(); $y];
+        const _: [(); $y] = [(); $x];
     };
 }
 
@@ -33,10 +34,10 @@ impl PagePointer {
 
 #[derive(Clone, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
 #[repr(transparent)]
-pub struct PageChecksum(pub [u8; 32]);
+pub struct PageChecksum(pub u64);
 
 impl PageChecksum {
-    pub const NULL: Self = Self([0; _]);
+    pub const NULL: Self = Self(0);
 }
 
 #[derive(Clone, Default, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
@@ -61,10 +62,10 @@ pub const UBER_PAGE_GAP: usize = UBER_PAGE_STRIDE - PAGE_SIZE;
 pub struct UberPage {
     pub magic: [u8; 16],
     pub generation: UberPageGeneration,
-    pub root: PagePointer,
     pub checksum: PageChecksum,
+    pub root: PagePointer,
     pub page_size: u16,
-    pub _padding: [u8; 4033],
+    pub _padding: [u8; 4057],
     pub kind: PageKind,
 }
 
@@ -75,13 +76,13 @@ const _: () = {
     const GENERATION_OFFSET: usize = MAGIC_OFFSET + size_of::<[u8; 16]>();
     const_assert_eq!(offset_of!(UberPage, generation), GENERATION_OFFSET);
 
-    const ROOT_OFFSET: usize = GENERATION_OFFSET + size_of::<UberPageGeneration>();
-    const_assert_eq!(offset_of!(UberPage, root), ROOT_OFFSET);
-
-    const CHECKSUM_OFFSET: usize = ROOT_OFFSET + size_of::<PagePointer>();
+    const CHECKSUM_OFFSET: usize = GENERATION_OFFSET + size_of::<UberPageGeneration>();
     const_assert_eq!(offset_of!(UberPage, checksum), CHECKSUM_OFFSET);
 
-    const PAGE_SIZE_OFFSET: usize = CHECKSUM_OFFSET + size_of::<PageChecksum>();
+    const ROOT_OFFSET: usize = CHECKSUM_OFFSET + size_of::<PageChecksum>();
+    const_assert_eq!(offset_of!(UberPage, root), ROOT_OFFSET);
+
+    const PAGE_SIZE_OFFSET: usize = ROOT_OFFSET + size_of::<PagePointer>();
     const_assert_eq!(offset_of!(UberPage, page_size), PAGE_SIZE_OFFSET);
 
     const PADDING_OFFSET: usize = PAGE_SIZE_OFFSET + size_of::<u16>();
@@ -119,10 +120,12 @@ const BRANCH_CAPACITY: usize = 40;
 #[repr(C)]
 pub struct BTreeBranchPage {
     pub keys: [[u8; 64]; BRANCH_CAPACITY],
-    pub children: [PagePointer; BRANCH_CAPACITY + 1],
     pub checksums: [PageChecksum; BRANCH_CAPACITY + 1],
+    pub children: [PagePointer; BRANCH_CAPACITY + 1],
     pub keys_len: u16,
-    pub _padding: [u8; 57],
+    // TODO: Increase branch capacity, now that we have more space after switching to a smaller
+    // checksum hash.
+    pub _padding: [u8; 1041],
     pub kind: PageKind,
 }
 
@@ -130,15 +133,15 @@ const _: () = {
     const KEYS_OFFSET: usize = 0;
     const_assert_eq!(offset_of!(BTreeBranchPage, keys), KEYS_OFFSET);
 
-    const CHILDREN_OFFSET: usize = KEYS_OFFSET + size_of::<[[u8; 64]; BRANCH_CAPACITY]>();
-    const_assert_eq!(offset_of!(BTreeBranchPage, children), CHILDREN_OFFSET);
-
-    const CHECKSUMS_OFFSET: usize =
-        CHILDREN_OFFSET + size_of::<[PagePointer; BRANCH_CAPACITY + 1]>();
+    const CHECKSUMS_OFFSET: usize = KEYS_OFFSET + size_of::<[[u8; 64]; BRANCH_CAPACITY]>();
     const_assert_eq!(offset_of!(BTreeBranchPage, checksums), CHECKSUMS_OFFSET);
 
-    const KEYS_LEN_OFFSET: usize =
+    const CHILDREN_OFFSET: usize =
         CHECKSUMS_OFFSET + size_of::<[PageChecksum; BRANCH_CAPACITY + 1]>();
+    const_assert_eq!(offset_of!(BTreeBranchPage, children), CHILDREN_OFFSET);
+
+    const KEYS_LEN_OFFSET: usize =
+        CHILDREN_OFFSET + size_of::<[PagePointer; BRANCH_CAPACITY + 1]>();
     const_assert_eq!(offset_of!(BTreeBranchPage, keys_len), KEYS_LEN_OFFSET);
 
     const PADDING_OFFSET: usize = KEYS_LEN_OFFSET + size_of::<u16>();
@@ -235,7 +238,7 @@ impl Database {
         let leaf_page = BTreeLeafPage::default();
         let leaf_page_ref = PageRef::BTreeLeaf(&leaf_page);
         let leaf_page_pointer = db.push_page(&leaf_page_ref);
-        let leaf_page_checksum = PageChecksum(*blake3::hash(leaf_page.as_bytes()).as_bytes());
+        let leaf_page_checksum = PageChecksum(XxHash3_64::oneshot(leaf_page.as_bytes()));
 
         // Update all(?) uber pages to point to leaf page
         for uber_page_pointer in &uber_page_pointers {
