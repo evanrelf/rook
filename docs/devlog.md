@@ -1,5 +1,36 @@
 # Development log
 
+## 2026-01-26
+
+I would like to incorporate some of the features from the ZFS filesystem into
+this project. I've already started thinking about checksums and redundant data.
+But so far I haven't had a justification for it besides "it'd be cool" or "it'd
+be a good learning experience," neither of which offset the performance penalty
+and increase in complexity.
+
+But I think I have an idea for how to pivot this barely-anything-yet project so
+that features like these make sense: design for offline, local-first,
+peer-to-peer, gossip, and stuff like that!
+
+An embedded, highly durable (nigh paranoid), lackluster performance database
+makes more sense in this context. It's oriented towards living on client devices
+(or on "the edge"), where throughput requirements are lower (e.g. a database may
+only experience some small amplification of human input which is trivial).
+
+This idea also lends itself to exploring collaborative data structures and
+algorithms more. I've been having fun goofing around with some operational
+transformation and CRDT stuff in my personal text editor project, and that
+knowledge and interest could apply here too.
+
+And it introduces distributed system challenges, which while intimidating, would
+be really valuable to learn about, and I think I'd have fun with.
+
+So I'm tentatively planning to aim this project in that direction. I was
+inspired to move in this direction after I remembered about [Ditto](https://www.ditto.com/)
+which works on stuff like this. I think [Antonio Scandurra](https://github.com/as-cii),
+currently working on the [Zed text editor](https://zed.dev/), used to work at
+Ditto?
+
 ## 2026-01-15
 
 More about LMDB:
