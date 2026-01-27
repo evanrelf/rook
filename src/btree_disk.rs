@@ -20,8 +20,8 @@ pub const PAGE_SIZE: usize = PAGE_SIZE_U16 as usize;
 #[repr(u8)]
 pub enum PageKind {
     Super = 0,
-    BTreeBranch = 10,
-    BTreeLeaf = 20,
+    BTreeBranch = 1,
+    BTreeLeaf = 2,
 }
 
 #[derive(Clone, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
