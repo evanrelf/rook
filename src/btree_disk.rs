@@ -11,6 +11,8 @@ macro_rules! const_assert_eq {
     };
 }
 
+pub const MAGIC: [u8; 16] = *b"Rook format 0\0  ";
+
 pub const PAGE_SIZE_U16: u16 = 4096;
 pub const PAGE_SIZE: usize = PAGE_SIZE_U16 as usize;
 
@@ -95,22 +97,16 @@ const _: () = {
     const_assert_eq!(size_of::<SuperPage>(), PAGE_SIZE);
 };
 
-impl SuperPage {
-    pub const MAGIC: [u8; 16] = *b"Rook format 0\0  ";
-    pub const PAGE_SIZE: u16 = PAGE_SIZE_U16;
-    pub const KIND: PageKind = PageKind::Super;
-}
-
 impl Default for SuperPage {
     fn default() -> Self {
         Self {
-            magic: Self::MAGIC,
+            magic: MAGIC,
             generation: SuperPageGeneration::default(),
-            page_size: Self::PAGE_SIZE,
+            page_size: PAGE_SIZE_U16,
             root: PagePointer::NULL,
             checksum: PageChecksum::NULL,
             _padding: [0; _],
-            kind: Self::KIND,
+            kind: PageKind::Super,
         }
     }
 }
@@ -152,10 +148,6 @@ const _: () = {
     const_assert_eq!(size_of::<BTreeBranchPage>(), PAGE_SIZE);
 };
 
-impl BTreeBranchPage {
-    pub const KIND: PageKind = PageKind::BTreeBranch;
-}
-
 impl Default for BTreeBranchPage {
     fn default() -> Self {
         Self {
@@ -164,7 +156,7 @@ impl Default for BTreeBranchPage {
             checksums: [PageChecksum::NULL; _],
             keys_len: 0,
             _padding: [0; _],
-            kind: Self::KIND,
+            kind: PageKind::BTreeBranch,
         }
     }
 }
@@ -200,10 +192,6 @@ const _: () = {
     const_assert_eq!(size_of::<BTreeLeafPage>(), PAGE_SIZE);
 };
 
-impl BTreeLeafPage {
-    pub const KIND: PageKind = PageKind::BTreeLeaf;
-}
-
 impl Default for BTreeLeafPage {
     fn default() -> Self {
         Self {
@@ -211,7 +199,7 @@ impl Default for BTreeLeafPage {
             values: [[0; _]; _],
             length: 0,
             _padding: [0; _],
-            kind: Self::KIND,
+            kind: PageKind::BTreeLeaf,
         }
     }
 }
