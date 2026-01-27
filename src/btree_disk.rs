@@ -65,8 +65,8 @@ pub const SUPER_PAGE_GAP: usize = SUPER_PAGE_STRIDE - PAGE_SIZE;
 pub struct SuperPage {
     pub magic: [u8; 16],
     pub generation: SuperPageGeneration,
-    pub checksum: PageChecksum,
-    pub root: PagePointer,
+    pub root_checksum: PageChecksum,
+    pub root_pointer: PagePointer,
     pub page_size: u16,
     pub _padding: [u8; 4057],
     pub kind: PageKind,
@@ -79,13 +79,13 @@ const _: () = {
     const GENERATION_OFFSET: usize = MAGIC_OFFSET + size_of::<[u8; 16]>();
     const_assert_eq!(offset_of!(SuperPage, generation), GENERATION_OFFSET);
 
-    const CHECKSUM_OFFSET: usize = GENERATION_OFFSET + size_of::<SuperPageGeneration>();
-    const_assert_eq!(offset_of!(SuperPage, checksum), CHECKSUM_OFFSET);
+    const ROOT_CHECKSUM_OFFSET: usize = GENERATION_OFFSET + size_of::<SuperPageGeneration>();
+    const_assert_eq!(offset_of!(SuperPage, root_checksum), ROOT_CHECKSUM_OFFSET);
 
-    const ROOT_OFFSET: usize = CHECKSUM_OFFSET + size_of::<PageChecksum>();
-    const_assert_eq!(offset_of!(SuperPage, root), ROOT_OFFSET);
+    const ROOT_POINTER_OFFSET: usize = ROOT_CHECKSUM_OFFSET + size_of::<PageChecksum>();
+    const_assert_eq!(offset_of!(SuperPage, root_pointer), ROOT_POINTER_OFFSET);
 
-    const PAGE_SIZE_OFFSET: usize = ROOT_OFFSET + size_of::<PagePointer>();
+    const PAGE_SIZE_OFFSET: usize = ROOT_POINTER_OFFSET + size_of::<PagePointer>();
     const_assert_eq!(offset_of!(SuperPage, page_size), PAGE_SIZE_OFFSET);
 
     const PADDING_OFFSET: usize = PAGE_SIZE_OFFSET + size_of::<u16>();
@@ -103,8 +103,8 @@ impl Default for SuperPage {
             magic: MAGIC,
             generation: SuperPageGeneration::default(),
             page_size: PAGE_SIZE_U16,
-            root: PagePointer::NULL,
-            checksum: PageChecksum::NULL,
+            root_pointer: PagePointer::NULL,
+            root_checksum: PageChecksum::NULL,
             _padding: [0; _],
             kind: PageKind::Super,
         }
@@ -117,8 +117,8 @@ const BRANCH_CAPACITY: usize = 53;
 #[repr(C)]
 pub struct BTreeBranchPage {
     pub keys: [[u8; 64]; BRANCH_CAPACITY],
-    pub checksums: [PageChecksum; BRANCH_CAPACITY + 1],
-    pub children: [PagePointer; BRANCH_CAPACITY + 1],
+    pub child_checksums: [PageChecksum; BRANCH_CAPACITY + 1],
+    pub child_pointers: [PagePointer; BRANCH_CAPACITY + 1],
     pub keys_len: u16,
     pub _padding: [u8; 53],
     pub kind: PageKind,
@@ -128,15 +128,21 @@ const _: () = {
     const KEYS_OFFSET: usize = 0;
     const_assert_eq!(offset_of!(BTreeBranchPage, keys), KEYS_OFFSET);
 
-    const CHECKSUMS_OFFSET: usize = KEYS_OFFSET + size_of::<[[u8; 64]; BRANCH_CAPACITY]>();
-    const_assert_eq!(offset_of!(BTreeBranchPage, checksums), CHECKSUMS_OFFSET);
+    const CHILD_CHECKSUMS_OFFSET: usize = KEYS_OFFSET + size_of::<[[u8; 64]; BRANCH_CAPACITY]>();
+    const_assert_eq!(
+        offset_of!(BTreeBranchPage, child_checksums),
+        CHILD_CHECKSUMS_OFFSET
+    );
 
-    const CHILDREN_OFFSET: usize =
-        CHECKSUMS_OFFSET + size_of::<[PageChecksum; BRANCH_CAPACITY + 1]>();
-    const_assert_eq!(offset_of!(BTreeBranchPage, children), CHILDREN_OFFSET);
+    const CHILD_POINTERS_OFFSET: usize =
+        CHILD_CHECKSUMS_OFFSET + size_of::<[PageChecksum; BRANCH_CAPACITY + 1]>();
+    const_assert_eq!(
+        offset_of!(BTreeBranchPage, child_pointers),
+        CHILD_POINTERS_OFFSET
+    );
 
     const KEYS_LEN_OFFSET: usize =
-        CHILDREN_OFFSET + size_of::<[PagePointer; BRANCH_CAPACITY + 1]>();
+        CHILD_POINTERS_OFFSET + size_of::<[PagePointer; BRANCH_CAPACITY + 1]>();
     const_assert_eq!(offset_of!(BTreeBranchPage, keys_len), KEYS_LEN_OFFSET);
 
     const PADDING_OFFSET: usize = KEYS_LEN_OFFSET + size_of::<u16>();
@@ -152,8 +158,8 @@ impl Default for BTreeBranchPage {
     fn default() -> Self {
         Self {
             keys: [[0; _]; _],
-            children: [PagePointer::NULL; _],
-            checksums: [PageChecksum::NULL; _],
+            child_pointers: [PagePointer::NULL; _],
+            child_checksums: [PageChecksum::NULL; _],
             keys_len: 0,
             _padding: [0; _],
             kind: PageKind::BTreeBranch,
@@ -232,8 +238,8 @@ impl Database {
             let PageMut::Super(super_page) = db.get_page_mut(super_page_pointer) else {
                 unreachable!()
             };
-            super_page.root = leaf_page_pointer.clone();
-            super_page.checksum = leaf_page_checksum.clone();
+            super_page.root_pointer = leaf_page_pointer.clone();
+            super_page.root_checksum = leaf_page_checksum.clone();
             super_page.generation.0 += 1;
         }
 
@@ -316,7 +322,7 @@ mod tests {
         let db = Database::new();
         let super_page_pointer = PagePointer(0);
         if let PageRef::Super(super_page) = db.get_page(&super_page_pointer) {
-            if let PageRef::BTreeLeaf(_leaf_page) = db.get_page(&super_page.root) {
+            if let PageRef::BTreeLeaf(_leaf_page) = db.get_page(&super_page.root_pointer) {
                 // nice
             } else {
                 unreachable!()
