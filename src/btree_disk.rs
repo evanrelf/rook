@@ -17,7 +17,7 @@ pub const PAGE_SIZE: usize = PAGE_SIZE_U16 as usize;
 #[derive(Clone, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
 #[repr(u8)]
 pub enum PageKind {
-    Uber = 0,
+    Super = 0,
     BTreeBranch = 10,
     BTreeLeaf = 20,
 }
@@ -42,26 +42,27 @@ impl PageChecksum {
 
 #[derive(Clone, Default, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
 #[repr(transparent)]
-pub struct UberPageGeneration(pub u64);
+pub struct SuperPageGeneration(pub u64);
 
-pub const UBER_PAGE_COUNT: usize = 2;
+pub const SUPER_PAGE_COUNT: usize = 2;
 
 const _: () = assert!(
-    UBER_PAGE_COUNT >= 2,
-    "Must have at least 2 uber pages for atomic writes"
+    SUPER_PAGE_COUNT >= 2,
+    "Must have at least 2 super pages for atomic writes"
 );
 
-pub const UBER_PAGE_STRIDE: usize = PAGE_SIZE * 2;
+pub const SUPER_PAGE_STRIDE: usize = PAGE_SIZE * 2;
 
-const _: () = assert!(UBER_PAGE_STRIDE >= PAGE_SIZE && UBER_PAGE_STRIDE.is_multiple_of(PAGE_SIZE));
+const _: () =
+    assert!(SUPER_PAGE_STRIDE >= PAGE_SIZE && SUPER_PAGE_STRIDE.is_multiple_of(PAGE_SIZE));
 
-pub const UBER_PAGE_GAP: usize = UBER_PAGE_STRIDE - PAGE_SIZE;
+pub const SUPER_PAGE_GAP: usize = SUPER_PAGE_STRIDE - PAGE_SIZE;
 
 #[derive(Clone, Immutable, IntoBytes, KnownLayout, TryFromBytes)]
 #[repr(C)]
-pub struct UberPage {
+pub struct SuperPage {
     pub magic: [u8; 16],
-    pub generation: UberPageGeneration,
+    pub generation: SuperPageGeneration,
     pub checksum: PageChecksum,
     pub root: PagePointer,
     pub page_size: u16,
@@ -71,40 +72,40 @@ pub struct UberPage {
 
 const _: () = {
     const MAGIC_OFFSET: usize = 0;
-    const_assert_eq!(offset_of!(UberPage, magic), MAGIC_OFFSET);
+    const_assert_eq!(offset_of!(SuperPage, magic), MAGIC_OFFSET);
 
     const GENERATION_OFFSET: usize = MAGIC_OFFSET + size_of::<[u8; 16]>();
-    const_assert_eq!(offset_of!(UberPage, generation), GENERATION_OFFSET);
+    const_assert_eq!(offset_of!(SuperPage, generation), GENERATION_OFFSET);
 
-    const CHECKSUM_OFFSET: usize = GENERATION_OFFSET + size_of::<UberPageGeneration>();
-    const_assert_eq!(offset_of!(UberPage, checksum), CHECKSUM_OFFSET);
+    const CHECKSUM_OFFSET: usize = GENERATION_OFFSET + size_of::<SuperPageGeneration>();
+    const_assert_eq!(offset_of!(SuperPage, checksum), CHECKSUM_OFFSET);
 
     const ROOT_OFFSET: usize = CHECKSUM_OFFSET + size_of::<PageChecksum>();
-    const_assert_eq!(offset_of!(UberPage, root), ROOT_OFFSET);
+    const_assert_eq!(offset_of!(SuperPage, root), ROOT_OFFSET);
 
     const PAGE_SIZE_OFFSET: usize = ROOT_OFFSET + size_of::<PagePointer>();
-    const_assert_eq!(offset_of!(UberPage, page_size), PAGE_SIZE_OFFSET);
+    const_assert_eq!(offset_of!(SuperPage, page_size), PAGE_SIZE_OFFSET);
 
     const PADDING_OFFSET: usize = PAGE_SIZE_OFFSET + size_of::<u16>();
-    const_assert_eq!(offset_of!(UberPage, _padding), PADDING_OFFSET);
+    const_assert_eq!(offset_of!(SuperPage, _padding), PADDING_OFFSET);
 
     const KIND_OFFSET: usize = PAGE_SIZE - size_of::<PageKind>();
-    const_assert_eq!(offset_of!(UberPage, kind), KIND_OFFSET);
+    const_assert_eq!(offset_of!(SuperPage, kind), KIND_OFFSET);
 
-    const_assert_eq!(size_of::<UberPage>(), PAGE_SIZE);
+    const_assert_eq!(size_of::<SuperPage>(), PAGE_SIZE);
 };
 
-impl UberPage {
+impl SuperPage {
     pub const MAGIC: [u8; 16] = *b"Rook format 0\0  ";
     pub const PAGE_SIZE: u16 = PAGE_SIZE_U16;
-    pub const KIND: PageKind = PageKind::Uber;
+    pub const KIND: PageKind = PageKind::Super;
 }
 
-impl Default for UberPage {
+impl Default for SuperPage {
     fn default() -> Self {
         Self {
             magic: Self::MAGIC,
-            generation: UberPageGeneration::default(),
+            generation: SuperPageGeneration::default(),
             page_size: Self::PAGE_SIZE,
             root: PagePointer::NULL,
             checksum: PageChecksum::NULL,
@@ -223,13 +224,13 @@ impl Database {
     pub fn new() -> Self {
         let mut db = Self { bytes: Vec::new() };
 
-        // Create uber pages
-        let uber_page = PageRef::Uber(&UberPage::default());
-        let mut uber_page_pointers = Vec::with_capacity(UBER_PAGE_COUNT);
-        uber_page_pointers.push(db.push_page(&uber_page));
-        for _ in 1..UBER_PAGE_COUNT {
-            db.bytes.resize(db.bytes.len() + UBER_PAGE_GAP, 0);
-            uber_page_pointers.push(db.push_page(&uber_page));
+        // Create super pages
+        let super_page = PageRef::Super(&SuperPage::default());
+        let mut super_page_pointers = Vec::with_capacity(SUPER_PAGE_COUNT);
+        super_page_pointers.push(db.push_page(&super_page));
+        for _ in 1..SUPER_PAGE_COUNT {
+            db.bytes.resize(db.bytes.len() + SUPER_PAGE_GAP, 0);
+            super_page_pointers.push(db.push_page(&super_page));
         }
 
         // Create root leaf page
@@ -238,14 +239,14 @@ impl Database {
         let leaf_page_pointer = db.push_page(&leaf_page_ref);
         let leaf_page_checksum = PageChecksum(XxHash3_64::oneshot(leaf_page.as_bytes()));
 
-        // Update all(?) uber pages to point to leaf page
-        for uber_page_pointer in &uber_page_pointers {
-            let PageMut::Uber(uber_page) = db.get_page_mut(uber_page_pointer) else {
+        // Update all(?) super pages to point to leaf page
+        for super_page_pointer in &super_page_pointers {
+            let PageMut::Super(super_page) = db.get_page_mut(super_page_pointer) else {
                 unreachable!()
             };
-            uber_page.root = leaf_page_pointer.clone();
-            uber_page.checksum = leaf_page_checksum.clone();
-            uber_page.generation.0 += 1;
+            super_page.root = leaf_page_pointer.clone();
+            super_page.checksum = leaf_page_checksum.clone();
+            super_page.generation.0 += 1;
         }
 
         db
@@ -257,7 +258,7 @@ impl Database {
         self.bytes.resize(self.bytes.len() + PAGE_SIZE, 0);
         let byte_offset = page_index * PAGE_SIZE;
         let page_bytes = match page {
-            PageRef::Uber(page) => page.as_bytes(),
+            PageRef::Super(page) => page.as_bytes(),
             PageRef::BTreeBranch(page) => page.as_bytes(),
             PageRef::BTreeLeaf(page) => page.as_bytes(),
         };
@@ -273,7 +274,7 @@ impl Database {
         let page_kind =
             PageKind::try_ref_from_bytes(&page_bytes[PAGE_SIZE - 1..PAGE_SIZE]).unwrap();
         match page_kind {
-            PageKind::Uber => PageRef::Uber(UberPage::try_ref_from_bytes(page_bytes).unwrap()),
+            PageKind::Super => PageRef::Super(SuperPage::try_ref_from_bytes(page_bytes).unwrap()),
             PageKind::BTreeBranch => {
                 PageRef::BTreeBranch(BTreeBranchPage::try_ref_from_bytes(page_bytes).unwrap())
             }
@@ -289,7 +290,7 @@ impl Database {
         let page_kind =
             PageKind::try_ref_from_bytes(&page_bytes[PAGE_SIZE - 1..PAGE_SIZE]).unwrap();
         match page_kind {
-            PageKind::Uber => PageMut::Uber(UberPage::try_mut_from_bytes(page_bytes).unwrap()),
+            PageKind::Super => PageMut::Super(SuperPage::try_mut_from_bytes(page_bytes).unwrap()),
             PageKind::BTreeBranch => {
                 PageMut::BTreeBranch(BTreeBranchPage::try_mut_from_bytes(page_bytes).unwrap())
             }
@@ -307,13 +308,13 @@ impl Default for Database {
 }
 
 pub enum PageRef<'a> {
-    Uber(&'a UberPage),
+    Super(&'a SuperPage),
     BTreeBranch(&'a BTreeBranchPage),
     BTreeLeaf(&'a BTreeLeafPage),
 }
 
 pub enum PageMut<'a> {
-    Uber(&'a mut UberPage),
+    Super(&'a mut SuperPage),
     BTreeBranch(&'a mut BTreeBranchPage),
     BTreeLeaf(&'a mut BTreeLeafPage),
 }
@@ -325,9 +326,9 @@ mod tests {
     #[test]
     fn test() {
         let db = Database::new();
-        let uber_page_pointer = PagePointer(0);
-        if let PageRef::Uber(uber_page) = db.get_page(&uber_page_pointer) {
-            if let PageRef::BTreeLeaf(_leaf_page) = db.get_page(&uber_page.root) {
+        let super_page_pointer = PagePointer(0);
+        if let PageRef::Super(super_page) = db.get_page(&super_page_pointer) {
+            if let PageRef::BTreeLeaf(_leaf_page) = db.get_page(&super_page.root) {
                 // nice
             } else {
                 unreachable!()

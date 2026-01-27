@@ -72,7 +72,7 @@ Some thoughts since my last update:
   fragmentation (allows entries to be out of order and have gaps).
 
 - I like how LMDB stores its freelist as just another b-tree, referenced by the
-  root page (in my case, the uber page).
+  root page (in my case, the super page).
 
 ## 2025-12-26
 
