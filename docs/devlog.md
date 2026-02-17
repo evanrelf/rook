@@ -1,5 +1,23 @@
 # Development log
 
+## 2026-02-16
+
+I haven't returned to this for a while. I've been feeling really conflicted on
+how I should use LLMs for writing code generally, if I should use them for side
+projects, and especially whether I should use them for this project. I'm feeling
+ennui, or ["Deep Blue"](https://simonwillison.net/2026/Feb/15/deep-blue/) if you
+will.
+
+For this project, I've decided I will not use LLMs whatsoever. The point is to
+challenge myself and learn new things, and using an LLM would deprive me of
+that.
+
+One other thing I'll mention: I believe I'm setting out to build a database
+storage engine here specifically. I'm currently not interested in a query
+language or optimizer, or representing the relational data model, or any of that
+stuff. That sounds fun but it's going to be really hard to just build a key
+value store in the first place.
+
 ## 2026-01-26
 
 I would like to incorporate some of the features from the ZFS filesystem into
